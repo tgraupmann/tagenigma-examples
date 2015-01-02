@@ -53,6 +53,11 @@ namespace LeaderboardExample
 			int index = 1;
 			foreach (LeaderboardData result in results)
 			{
+				if (string.IsNullOrEmpty(result.name) ||
+				    string.IsNullOrEmpty(result.score))
+				{
+					continue;
+				}
 				LeaderboardItem newItem = (LeaderboardItem)Instantiate(_PrefabLeaderboardItem);
 				newItem.transform.SetParent(_LeaderboardLabels.transform);
 				_leaderboardItems.Add(newItem);
