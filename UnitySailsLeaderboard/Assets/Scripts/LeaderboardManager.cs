@@ -91,8 +91,7 @@ namespace LeaderboardExample
 			int index = 1;
 			foreach (LeaderboardData result in results)
 			{
-				if (string.IsNullOrEmpty(result.name) ||
-				    string.IsNullOrEmpty(result.score))
+				if (string.IsNullOrEmpty(result.name))
 				{
 					continue;
 				}
@@ -104,7 +103,7 @@ namespace LeaderboardExample
 				rt.offsetMax = new Vector2(0, -2000*(index));
 				newItem._Id = result.id;
 				newItem._Name.text = result.name;
-				newItem._Score.text = result.score;
+				newItem._Score.text = result.score.ToString();
 				++index;
 			}
 		}
