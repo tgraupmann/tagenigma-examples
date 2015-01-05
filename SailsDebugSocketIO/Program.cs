@@ -7,7 +7,10 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Mime;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 
@@ -43,6 +46,17 @@ namespace SailsDebugSocketIO
 
         static void Main(string[] args)
         {
+            //Trust all certificates
+            System.Net.ServicePointManager.ServerCertificateValidationCallback =
+                ((sender, certificate, chain, sslPolicyErrors) => true);
+
+            // trust sender
+            System.Net.ServicePointManager.ServerCertificateValidationCallback
+                            = ((sender, cert, chain, errors) => cert.Subject.Contains("YourServerName"));
+
+            // validate cert by calling a function
+            ServicePointManager.ServerCertificateValidationCallback += new RemoteCertificateValidationCallback(ValidateRemoteCertificate);
+
             // keep listening and send a response
             while (true)
             {
@@ -62,6 +76,12 @@ namespace SailsDebugSocketIO
                 }
                 Thread.Sleep(0);
             }
+        }
+
+        // callback used to validate the certificate in an SSL conversation
+        private static bool ValidateRemoteCertificate(object sender, X509Certificate cert, X509Chain chain, SslPolicyErrors policyErrors)
+        {
+            return true;
         }
 
         static void Worker(Object obj)
@@ -88,159 +108,170 @@ namespace SailsDebugSocketIO
                         sw.Write(m_policy);
                         sw.Flush();
                     }
+                    return;
                 }
-                else if (context.Request.Url.LocalPath.Equals("/socket.io/1/"))
+
+                string origin = context.Request.Headers["Origin"];
+                if (string.IsNullOrEmpty(origin))
                 {
-                    using (StreamReader sr = new StreamReader(context.Request.InputStream))
-                    {
-                        foreach (string key in context.Request.Headers.AllKeys)
-                        {
-                            Console.WriteLine("Header={0} Value={1}", key, context.Request.Headers[key]);
-                        }
-
-                        string content = sr.ReadToEnd();
-                        if (!string.IsNullOrEmpty(content))
-                        {
-                            Console.WriteLine("Content: {0}", content);
-                        }
-
-                        string origin = context.Request.Headers["Origin"];
-
-                        context.Response.ContentType = "text/plain";
-                        context.Response.AddHeader("transfer-encoding", "chunked");
-                        context.Response.AddHeader("Access-Control-Allow-Origin", origin);
-                        context.Response.AddHeader("Access-Control-Allow-Credentials", "true");
-
-                        string response =
-                            "6I9ihRlAyaYSqJYx6Xpw:60:60:websocket,htmlfile,xhr-polling,jsonp-polling";
-                        byte[] buffer = System.Text.UTF8Encoding.UTF8.GetBytes(response);
-                        context.Response.OutputStream.Write(buffer, 0, buffer.Length);
-                        context.Response.OutputStream.Flush();
-                    }
+                    return;
                 }
-                else if (context.Request.Url.LocalPath.Equals("/socket.io/1/jsonp-polling/6I9ihRlAyaYSqJYx6Xpw"))
+
+                context.Response.AddHeader("Access-Control-Allow-Origin", origin);
+
+                string targetUrl = string.Format("{0}{1}", origin, context.Request.Url.PathAndQuery);
+                Console.WriteLine("Proxy: {0}", targetUrl);
+
+                HttpWebRequest req = (HttpWebRequest)HttpWebRequest.Create(targetUrl);
+                foreach (string key in context.Request.Headers.AllKeys)
                 {
-                    using (StreamReader sr = new StreamReader(context.Request.InputStream))
+                    try
                     {
-                        foreach (string key in context.Request.Headers.AllKeys)
+                        Console.WriteLine("Header={0} Value={1}", key, context.Request.Headers[key]);
+
+                        switch (key)
                         {
-                            Console.WriteLine("Header={0} Value={1}", key, context.Request.Headers[key]);
-                        }
-                        string content = sr.ReadToEnd();
-                        if (!string.IsNullOrEmpty(content))
-                        {
-                            Console.WriteLine("Content: {0}", content);
-                        }
-
-                        string origin = context.Request.Headers["Origin"];
-
-                        context.Response.ContentType = "text/javascript";
-                        context.Response.AddHeader("transfer-encoding", "chunked");
-                        context.Response.AddHeader("Access-Control-Allow-Origin", origin);
-                        context.Response.AddHeader("Access-Control-Allow-Credentials", "true");
-                        context.Response.AddHeader("x-xss-protection", "0");
-                        context.Response.StatusCode = 200;
-
-                        string response = @"io.j[0](""7:::1+0"");";
-                        byte[] buffer = System.Text.UTF8Encoding.UTF8.GetBytes(response);
-                        context.Response.OutputStream.Write(buffer, 0, buffer.Length);
-                        context.Response.OutputStream.Flush();
-                    }
-                }
-                else if (context.Request.Url.LocalPath.Equals("/socket.io/1/xhr-polling/6I9ihRlAyaYSqJYx6Xpw"))
-                {
-                    using (StreamReader sr = new StreamReader(context.Request.InputStream))
-                    {
-                        foreach (string key in context.Request.Headers.AllKeys)
-                        {
-                            Console.WriteLine("Header={0} Value={1}", key, context.Request.Headers[key]);
-                        }
-                        string content = sr.ReadToEnd();
-                        if (!string.IsNullOrEmpty(content))
-                        {
-                            Console.WriteLine("Content: {0}", content);
-                        }
-
-                        string origin = context.Request.Headers["Origin"];
-
-                        context.Response.ContentType = "text/plain";
-                        context.Response.AddHeader("transfer-encoding", "chunked");
-                        context.Response.AddHeader("Access-Control-Allow-Origin", origin);
-                        context.Response.AddHeader("Access-Control-Allow-Credentials", "true");
-                        context.Response.AddHeader("x-xss-protection", "0");
-                        context.Response.StatusCode = 200;
-
-                        string response = @"";
-                        byte[] buffer = System.Text.UTF8Encoding.UTF8.GetBytes(response);
-                        context.Response.OutputStream.Write(buffer, 0, buffer.Length);
-                        context.Response.OutputStream.Flush();
-                    }
-                }
-                else if (context.Request.Url.LocalPath.Equals("/socket.io/1/websocket/6I9ihRlAyaYSqJYx6Xpw"))
-                {
-                    using (StreamReader sr = new StreamReader(context.Request.InputStream))
-                    {
-                        foreach (string key in context.Request.Headers.AllKeys)
-                        {
-                            Console.WriteLine("Header: {0} Value: {1}", key, context.Request.Headers[key]);
-                        }
-
-                        int chunkSize = 256;
-                        byte[] buffer = new byte[chunkSize];
-                        DateTime timeout = DateTime.Now + TimeSpan.FromSeconds(2);
-                        while (DateTime.Now < timeout)
-                        {
-                            int peek = sr.Peek();
-                            if (peek != -1)
-                            {
-                                break;
-                            }
-                            if (!sr.EndOfStream)
-                            {
-                                context.Request.InputStream.Read(buffer, 0, 256);
-                                if (buffer[0] != 0)
+                            case "Connection":
+                                switch (context.Request.Headers[key])
                                 {
-                                    Console.WriteLine("Something!");
+                                    case "keep-alive":
+                                        req.KeepAlive = true;
+                                        break;
+                                    default:
+                                        req.Connection = context.Request.Headers[key];
+                                        break;
                                 }
-                            }
-                            Thread.Sleep(0);
+                                break;
+                            case "Accept":
+                                for (int i = 0; i < context.Request.AcceptTypes.Length; ++i)
+                                {
+                                    if (i == 0)
+                                    {
+                                        req.Accept = context.Request.AcceptTypes[0];
+                                    }
+                                    else
+                                    {
+                                        req.Accept += "," + context.Request.AcceptTypes[i];
+                                    }
+                                }
+                                break;
+                            case "Content-Length":
+                                req.ContentLength = context.Request.ContentLength64;
+                                break;
+                            case "Content-Type":
+                                req.ContentType = context.Request.ContentType;
+                                break;
+                            case "Host":
+                                req.Host = new Uri(targetUrl).Host;
+                                break;
+                            case "Referer":
+                                req.Referer = context.Request.UrlReferrer.AbsoluteUri;
+                                break;
+                            case "User-Agent":
+                                req.UserAgent = context.Request.UserAgent;
+                                break;
+                            default:
+                                req.Headers[key] = context.Request.Headers[key];
+                                break;
                         }
                     }
-                    using (StreamReader sr = new StreamReader(context.Request.InputStream))
+                    catch (Exception ex)
                     {
-                        string content = sr.ReadToEnd();
-                        if (!string.IsNullOrEmpty(content))
-                        {
-                            Console.WriteLine("Content: {0}", content);
-                        }
-
-                        string origin = context.Request.Headers["Origin"];
-
-                        context.Response.ContentType = "text/plain";
-                        context.Response.AddHeader("transfer-encoding", "chunked");
-                        context.Response.AddHeader("Access-Control-Allow-Origin", origin);
-                        context.Response.AddHeader("Access-Control-Allow-Credentials", "true");
-                        context.Response.AddHeader("x-xss-protection", "0");
-                        context.Response.StatusCode = 200;
-
-                        string response = @"";
-                        byte[] buffer = System.Text.UTF8Encoding.UTF8.GetBytes(response);
-                        context.Response.OutputStream.Write(buffer, 0, buffer.Length);
-                        context.Response.OutputStream.Flush();
+                        Console.WriteLine("Set property={0} failed={1}", key, ex);
                     }
                 }
-                else
-                {
-                    Console.WriteLine("Request: {0}", context.Request.Url.LocalPath);
+                req.ContentType = context.Request.ContentType;
+                req.Method = context.Request.HttpMethod;
 
-                    using (StreamReader sr = new StreamReader(context.Request.InputStream))
+                if (req.ContentLength > 0)
+                {
+                    Stream streamReq = req.GetRequestStream();
+                    int bytesRead = 1;
+                    while (bytesRead > 0)
                     {
-                        string content = sr.ReadToEnd();
-                        if (!string.IsNullOrEmpty(content))
+                        byte[] buffer = new byte[128];
+                        bytesRead = context.Request.InputStream.Read(buffer, 0, buffer.Length);
+                        if (bytesRead > 0)
                         {
-                            Console.WriteLine("Content: {0}", content);
+                            Console.WriteLine(string.Format("Byte Content={0}", UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
+                            streamReq.Write(buffer, 0, bytesRead);
+                            streamReq.Flush();
                         }
                     }
+                }
+
+                try
+                {
+                    HttpWebResponse res = (HttpWebResponse)req.GetResponse();
+
+                    foreach (string key in res.Headers.AllKeys)
+                    {
+                        Console.WriteLine("Response header={0} value={1}", key, res.Headers[key]);
+                        try
+                        {
+                            switch (key)
+                            {
+                                case "Content-Length":
+                                case "Content-Type":
+                                    break;
+                                default:
+                                    context.Response.AddHeader(key, res.Headers[key]);
+                                    break;
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            Console.Error.WriteLine("Failed to set={0}", key);
+                        }
+                    }
+
+                    context.Response.ContentType = res.ContentType;
+                    if (res.ContentLength >= 0)
+                    {
+                        context.Response.ContentLength64 = res.ContentLength;
+                    }
+                    context.Response.StatusCode = (int)res.StatusCode;
+                    context.Response.StatusDescription = res.StatusDescription;
+
+                    Stream targetStream = res.GetResponseStream();
+
+                    if (res.ContentLength > 0)
+                    {
+                        byte[] buffer = new byte[res.ContentLength];
+                        targetStream.Read(buffer, 0, buffer.Length);
+                        Console.WriteLine(string.Format("Byte Content={0}", UTF8Encoding.UTF8.GetString(buffer)));
+                        context.Response.OutputStream.Write(buffer, 0, buffer.Length);
+                        context.Response.OutputStream.Flush();
+                        return;
+                    }
+                    else
+                    {
+                        if (req.KeepAlive)
+                        {
+                            byte[] buffer = new byte[128];
+                            int bytesRead = 1;
+                            while (bytesRead > 0)
+                            {
+                                bytesRead = targetStream.Read(buffer, 0, (int) buffer.Length);
+                                if (bytesRead > 0)
+                                {
+                                    Console.WriteLine(string.Format("Byte Content={0}", UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
+                                    context.Response.OutputStream.Write(buffer, 0, bytesRead);
+                                    context.Response.OutputStream.Flush();
+                                }
+                                Thread.Sleep(0);
+                            }
+                        }
+                    }
+
+                    targetStream.Close();
+                    res.Close();
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine(ex);
+                    return;
                 }
             }
             catch (System.Exception ex)
