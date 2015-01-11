@@ -177,6 +177,8 @@ namespace SailsDebugSocketIO
                 req.ContentType = context.Request.ContentType;
                 req.Method = context.Request.HttpMethod;
 
+                Console.WriteLine("Request Method={0}", req.Method);
+
                 if (req.ContentLength > 0)
                 {
                     Stream streamReq = req.GetRequestStream();
