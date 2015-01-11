@@ -32,12 +32,13 @@ namespace NetForSocketIO
             ServicePointManager.ServerCertificateValidationCallback +=
                 new RemoteCertificateValidationCallback(ValidateRemoteCertificate);
 
-            //ClientSocketIO client = new ClientSocketIO("localhost", 8443);
-            ClientSocketIO client = new ClientSocketIO("sailsdemo-tgraupmann.c9.io", 443);
+            ClientSocketIO client = new ClientSocketIO("localhost", 8443, "sailsdemo-tgraupmann.c9.io");
+            //ClientSocketIO client = new ClientSocketIO("sailsdemo-tgraupmann.c9.io", 443);
             client.Connect();
             while (true)
             {
-                Thread.Sleep(0);
+                client.SendSocket();
+                Thread.Sleep(10000);
             }
         }
     }
