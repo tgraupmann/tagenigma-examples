@@ -274,6 +274,7 @@ namespace NetForSocketIO
                 req.Accept = "*/*";
                 req.Headers.Add("Accept-Encoding", "gzip, deflate, sdch");
                 req.Headers.Add("Accept-Language", "en-US,en;q=0.8");
+                req.Referer = string.Format("https://{0}/", _Origin);
                 req.UserAgent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.0 Safari/537.36";
                 req.Method = "GET";
             }
@@ -383,6 +384,7 @@ namespace NetForSocketIO
                 req.Accept = "*/*";
                 req.Headers.Add("Accept-Encoding", "gzip, deflate, sdch");
                 req.Headers.Add("Accept-Language", "en-US,en;q=0.8");
+                req.Referer = string.Format("https://{0}/", _Origin);
                 req.UserAgent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.0 Safari/537.36";
                 req.Method = "POST";
             }

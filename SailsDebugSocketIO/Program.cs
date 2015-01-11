@@ -189,7 +189,7 @@ namespace SailsDebugSocketIO
                         bytesRead = context.Request.InputStream.Read(buffer, 0, buffer.Length);
                         if (bytesRead > 0)
                         {
-                            Console.WriteLine(string.Format("****Request Content={0}", UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
+                            Console.WriteLine(string.Format("***On Request {0}\r\n*Content={1}", targetUrl, UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
                             streamReq.Write(buffer, 0, bytesRead);
                             streamReq.Flush();
                         }
@@ -244,9 +244,9 @@ namespace SailsDebugSocketIO
                     if (res.ContentLength > 0)
                     {
                         byte[] buffer = new byte[res.ContentLength];
-                        targetResponse.Read(buffer, 0, buffer.Length);
-                        Console.WriteLine(string.Format("***Response Content={0}", UTF8Encoding.UTF8.GetString(buffer)));
-                        context.Response.OutputStream.Write(buffer, 0, buffer.Length);
+                        int bytesRead = targetResponse.Read(buffer, 0, buffer.Length);
+                        Console.WriteLine(string.Format("***On Response {0}\r\n*Content={1}", targetUrl, UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
+                        context.Response.OutputStream.Write(buffer, 0, bytesRead);
                         context.Response.OutputStream.Flush();
                         return;
                     }
@@ -261,7 +261,7 @@ namespace SailsDebugSocketIO
                                 bytesRead = targetResponse.Read(buffer, 0, (int)buffer.Length);
                                 if (bytesRead > 0)
                                 {
-                                    Console.WriteLine(string.Format("***Response Content={0}", UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
+                                    Console.WriteLine(string.Format("***On Response {0}\r\n*Content={1}", targetUrl, UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
                                     context.Response.OutputStream.Write(buffer, 0, bytesRead);
                                     context.Response.OutputStream.Flush();
                                 }
