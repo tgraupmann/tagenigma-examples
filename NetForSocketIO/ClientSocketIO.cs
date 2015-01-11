@@ -78,6 +78,16 @@ namespace NetForSocketIO
             try
             {
                 req = (HttpWebRequest) HttpWebRequest.Create(url);
+//[Request Header] Origin Value=https://sailsdemo-tgraupmann.c9.io
+//[Request Header] Cache-Control Value=no-cache
+//[Request Header] Connection Value=keep-alive
+//[Request Header] Pragma Value=no-cache
+//[Request Header] Accept Value=*/*
+//[Request Header] Accept-Encoding Value=gzip, deflate, sdch
+//[Request Header] Accept-Language Value=en-US,en;q=0.8
+//[Request Header] Host Value=localhost:8443
+//[Request Header] Referer Value=https://sailsdemo-tgraupmann.c9.io/
+//[Request Header] User-Agent Value=Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.0 Safari/537.36
             }
             catch (Exception e)
             {
@@ -164,6 +174,19 @@ namespace NetForSocketIO
             {
                 req = (HttpWebRequest)HttpWebRequest.Create(url);
 
+//[Request Header] Origin Value=https://sailsdemo-tgraupmann.c9.io
+//[Request Header] Sec-WebSocket-Version Value=13
+//[Request Header] Sec-WebSocket-Key Value=xpV+2WIKlE+bMOacDx5ZzA==
+//[Request Header] Sec-WebSocket-Extensions Value=permessage-deflate; client_max_window_bits
+//[Request Header] Cache-Control Value=no-cache
+//[Request Header] Connection Value=Upgrade
+//[Request Header] Pragma Value=no-cache
+//[Request Header] Upgrade Value=websocket
+//[Request Header] Accept-Encoding Value=gzip, deflate, sdch
+//[Request Header] Accept-Language Value=en-US,en;q=0.8
+//[Request Header] Host Value=localhost:8443
+//[Request Header] User-Agent Value=Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.0 Safari/537.36
+
                 req.Headers.Add("Origin", string.Format("https://{0}", _Host));
                 req.Headers.Add("Sec-WebSocket-Version", "13");
                 req.Headers.Add("Sec-WebSocket-Key", "uraTQs4eAQ9QLHiUdNxBwQ==");
@@ -225,15 +248,21 @@ namespace NetForSocketIO
             try
             {
                 req = (HttpWebRequest)HttpWebRequest.Create(url);
-
+//[Request Header] Origin Value=https://sailsdemo-tgraupmann.c9.io
+//[Request Header] Cache-Control Value=no-cache
+//[Request Header] Connection Value=keep-alive
+//[Request Header] Pragma Value=no-cache
+//[Request Header] Accept Value=*/*
+//[Request Header] Accept-Encoding Value=gzip, deflate, sdch
+//[Request Header] Accept-Language Value=en-US,en;q=0.8
+//[Request Header] Host Value=localhost:8443
+//[Request Header] Referer Value=https://sailsdemo-tgraupmann.c9.io/
+//[Request Header] User-Agent Value=Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.0 Safari/537.36
                 req.Headers.Add("Origin", string.Format("https://{0}", _Host));
-                req.Headers.Add("Sec-WebSocket-Version", "13");
-                req.Headers.Add("Sec-WebSocket-Key", "uraTQs4eAQ9QLHiUdNxBwQ==");
-                req.Headers.Add("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits");
                 req.Headers.Add("Cache-Control", "no-cache");
-                req.Connection = "Upgrade";
+                req.KeepAlive = true;
                 req.Headers.Add("Pragma", "no-cache");
-                req.Headers.Add("Upgrade", "websocket");
+                req.Accept = "*/*";
                 req.Headers.Add("Accept-Encoding", "gzip, deflate, sdch");
                 req.Headers.Add("Accept-Language", "en-US,en;q=0.8");
                 req.UserAgent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.0 Safari/537.36";

@@ -121,7 +121,7 @@ namespace SailsDebugSocketIO
                 {
                     try
                     {
-                        Console.WriteLine("Header={0} Value={1}", key, context.Request.Headers[key]);
+                        Console.WriteLine("[Request Header] {0} Value={1}", key, context.Request.Headers[key]);
 
                         switch (key.ToUpper())
                         {
@@ -200,7 +200,7 @@ namespace SailsDebugSocketIO
 
                     foreach (string key in res.Headers.AllKeys)
                     {
-                        Console.WriteLine("Response header={0} value={1}", key, res.Headers[key]);
+                        Console.WriteLine("[Response Header] {0} value={1}", key, res.Headers[key]);
                         try
                         {
                             switch (key.ToUpper())
