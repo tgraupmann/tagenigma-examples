@@ -90,18 +90,12 @@ namespace SailsDebugSocketIO
 
             try
             {
+                Console.WriteLine("Requested: {0}", context.Request.Url.AbsoluteUri);
+
                 string fileName = Path.GetFileName(context.Request.Url.AbsoluteUri);
 
-                if (string.IsNullOrEmpty(fileName))
-                {
-                    Console.WriteLine("Requested empty filename");
-                }
-                else
-                {
-                    Console.WriteLine("Requested: {0}", context.Request.Url.AbsoluteUri);
-                }
-
-                if (fileName.ToLower().Equals("crossdomain.xml"))
+                if (!string.IsNullOrEmpty(fileName) &&
+                    fileName.ToLower().Equals("crossdomain.xml"))
                 {
                     using (StreamWriter sw = new StreamWriter(context.Response.OutputStream))
                     {
@@ -114,7 +108,7 @@ namespace SailsDebugSocketIO
                 string origin = context.Request.Headers["Origin"];
                 if (string.IsNullOrEmpty(origin))
                 {
-                    return;
+                    origin = "https://sailsdemo-tgraupmann.c9.io";
                 }
 
                 context.Response.AddHeader("Access-Control-Allow-Origin", origin);
@@ -129,12 +123,12 @@ namespace SailsDebugSocketIO
                     {
                         Console.WriteLine("Header={0} Value={1}", key, context.Request.Headers[key]);
 
-                        switch (key)
+                        switch (key.ToUpper())
                         {
-                            case "Connection":
-                                switch (context.Request.Headers[key])
+                            case "CONNECTION":
+                                switch (context.Request.Headers[key].ToUpper())
                                 {
-                                    case "keep-alive":
+                                    case "KEEP-ALIVE":
                                         req.KeepAlive = true;
                                         break;
                                     default:
@@ -142,7 +136,7 @@ namespace SailsDebugSocketIO
                                         break;
                                 }
                                 break;
-                            case "Accept":
+                            case "ACCEPT":
                                 for (int i = 0; i < context.Request.AcceptTypes.Length; ++i)
                                 {
                                     if (i == 0)
@@ -155,19 +149,19 @@ namespace SailsDebugSocketIO
                                     }
                                 }
                                 break;
-                            case "Content-Length":
+                            case "CONTENT-LENGTH":
                                 req.ContentLength = context.Request.ContentLength64;
                                 break;
-                            case "Content-Type":
+                            case "CONTENT-TYPE":
                                 req.ContentType = context.Request.ContentType;
                                 break;
-                            case "Host":
+                            case "HOST":
                                 req.Host = new Uri(targetUrl).Host;
                                 break;
-                            case "Referer":
+                            case "REFERER":
                                 req.Referer = context.Request.UrlReferrer.AbsoluteUri;
                                 break;
-                            case "User-Agent":
+                            case "USER-AGENT":
                                 req.UserAgent = context.Request.UserAgent;
                                 break;
                             default:
@@ -193,7 +187,7 @@ namespace SailsDebugSocketIO
                         bytesRead = context.Request.InputStream.Read(buffer, 0, buffer.Length);
                         if (bytesRead > 0)
                         {
-                            Console.WriteLine(string.Format("Byte Content={0}", UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
+                            Console.WriteLine(string.Format("****Request Content={0}", UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
                             streamReq.Write(buffer, 0, bytesRead);
                             streamReq.Flush();
                         }
@@ -209,10 +203,10 @@ namespace SailsDebugSocketIO
                         Console.WriteLine("Response header={0} value={1}", key, res.Headers[key]);
                         try
                         {
-                            switch (key)
+                            switch (key.ToUpper())
                             {
-                                case "Content-Length":
-                                case "Content-Type":
+                                case "CONTENT-LENGTH":
+                                case "CONTENT-TYPE":
                                     break;
                                 default:
                                     context.Response.AddHeader(key, res.Headers[key]);
@@ -225,21 +219,31 @@ namespace SailsDebugSocketIO
                         }
                     }
 
-                    context.Response.ContentType = res.ContentType;
+                    if (context.Request.Url.LocalPath.StartsWith("/socket.io/1/jsonp-polling/"))
+                    {
+                        context.Response.ContentType = "application/javascript";
+                    }
+                    else
+                    {
+                        context.Response.ContentType = res.ContentType;
+                    }
                     if (res.ContentLength >= 0)
                     {
                         context.Response.ContentLength64 = res.ContentLength;
                     }
+                    context.Response.ProtocolVersion = res.ProtocolVersion;
+                    //context.Response.RedirectLocation = ???;
+                    //context.Response.SendChunked = ???;
                     context.Response.StatusCode = (int)res.StatusCode;
                     context.Response.StatusDescription = res.StatusDescription;
 
-                    Stream targetStream = res.GetResponseStream();
+                    Stream targetResponse = res.GetResponseStream();
 
                     if (res.ContentLength > 0)
                     {
                         byte[] buffer = new byte[res.ContentLength];
-                        targetStream.Read(buffer, 0, buffer.Length);
-                        Console.WriteLine(string.Format("Byte Content={0}", UTF8Encoding.UTF8.GetString(buffer)));
+                        targetResponse.Read(buffer, 0, buffer.Length);
+                        Console.WriteLine(string.Format("***Response Content={0}", UTF8Encoding.UTF8.GetString(buffer)));
                         context.Response.OutputStream.Write(buffer, 0, buffer.Length);
                         context.Response.OutputStream.Flush();
                         return;
@@ -252,10 +256,10 @@ namespace SailsDebugSocketIO
                             int bytesRead = 1;
                             while (bytesRead > 0)
                             {
-                                bytesRead = targetStream.Read(buffer, 0, (int) buffer.Length);
+                                bytesRead = targetResponse.Read(buffer, 0, (int)buffer.Length);
                                 if (bytesRead > 0)
                                 {
-                                    Console.WriteLine(string.Format("Byte Content={0}", UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
+                                    Console.WriteLine(string.Format("***Response Content={0}", UTF8Encoding.UTF8.GetString(buffer, 0, bytesRead)));
                                     context.Response.OutputStream.Write(buffer, 0, bytesRead);
                                     context.Response.OutputStream.Flush();
                                 }
@@ -264,7 +268,7 @@ namespace SailsDebugSocketIO
                         }
                     }
 
-                    targetStream.Close();
+                    targetResponse.Close();
                     res.Close();
                     return;
                 }
