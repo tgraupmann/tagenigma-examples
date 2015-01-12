@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -7,6 +9,8 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
+using ICSharpCode.SharpZipLib.Core;
+using ICSharpCode.SharpZipLib.GZip;
 
 namespace DebugHttpServer
 {
@@ -109,11 +113,64 @@ namespace DebugHttpServer
                                 skipBuffer.Clear();
                                 //Console.WriteLine("Injected host");
                             }
+                            /*
+                            else if (content.ToUpper().EndsWith("ACCEPT-ENCODING: "))
+                            {
+                                byte[] inject = Encoding.UTF8.GetBytes(string.Format("utf8\r\n"));
+                                buffer.AddRange(inject);
+                                _serverSslStream.Write(inject.ToArray());
+                                _serverSslStream.Flush();
+                                skipStreaming = true;
+                                skipBuffer.Clear();
+                                //Console.WriteLine("Injected encoding");
+                            }
+                            */
 
                             if (content.ToUpper().EndsWith("\r\n\r\n"))
                             {
                                 Console.WriteLine("***readClient is being keptAlive***");
                                 Console.WriteLine(content);
+                                buffer.Clear();
+                            }
+                            else
+                            {
+                                //Console.WriteLine("Content Size: {0}", buffer.Count);
+                                if (File.Exists("test.txt"))
+                                {
+                                    using (
+                                        FileStream fs = File.Open("test.txt", FileMode.Truncate, FileAccess.Write,
+                                            FileShare.ReadWrite))
+                                    {
+                                        
+                                    }
+                                }
+                                using (
+                                    FileStream fs = File.Open("test.txt", FileMode.OpenOrCreate, FileAccess.Write,
+                                        FileShare.ReadWrite))
+                                {
+                                    byte[] contents = Encoding.UTF8.GetBytes("reading client...\r\n");
+                                    fs.Write(contents, 0, contents.Length);
+                                    fs.Flush();
+                                    contents = null;
+                                    try
+                                    {
+                                        using (MemoryStream ms = new MemoryStream(buffer.ToArray()))
+                                        {
+                                            using (GZipStream gzipStream = new GZipStream(ms, CompressionMode.Decompress))
+                                            {
+                                                gzipStream.CopyTo(fs);
+                                                gzipStream.Flush();
+                                                fs.Flush();
+                                            }
+                                        }
+                                    }
+                                    catch (Exception)
+                                    {
+                                        contents = buffer.ToArray();
+                                        fs.Write(contents, 0, contents.Length);
+                                        fs.Flush();
+                                    }
+                                }
                             }
                         }
                         else
@@ -165,6 +222,12 @@ namespace DebugHttpServer
                         buffer.Add((byte)one);
                         _clientSslStream.WriteByte((byte)one);
                         _clientSslStream.Flush();
+
+                        string content = Encoding.UTF8.GetString(buffer.ToArray());
+                        if (content.ToUpper().EndsWith("\r\n\r\n"))
+                        {
+                            //Console.WriteLine("Time to un gzip");
+                        }
                     }
                     else if (buffer.Count > 0)
                     {
@@ -193,31 +256,36 @@ namespace DebugHttpServer
             return true;
         }
 
+        private object _lockObject = new object();
+
         private void closeConnections()
         {
-            if (null != _serverSslStream)
+            lock (_lockObject)
             {
-                Console.WriteLine("Closed server ssl stream");
-                _serverSslStream.Close();
-                _serverSslStream = null;
-            }
-            if (null != _serverTcpClient)
-            {
-                Console.WriteLine("Closed server tcp client");
-                _serverTcpClient.Close();
-                _serverTcpClient = null;
-            }
-            if (null != _clientSslStream)
-            {
-                Console.WriteLine("Closed client ssl stream");
-                _clientSslStream.Close();
-                _clientSslStream = null;
-            }
-            if (null != _clientTcpClient)
-            {
-                Console.WriteLine("Closed client tcp client");
-                _clientTcpClient.Close();
-                _clientTcpClient = null;
+                if (null != _serverSslStream)
+                {
+                    Console.WriteLine("Closed server ssl stream");
+                    _serverSslStream.Close();
+                    _serverSslStream = null;
+                }
+                if (null != _serverTcpClient)
+                {
+                    Console.WriteLine("Closed server tcp client");
+                    _serverTcpClient.Close();
+                    _serverTcpClient = null;
+                }
+                if (null != _clientSslStream)
+                {
+                    Console.WriteLine("Closed client ssl stream");
+                    _clientSslStream.Close();
+                    _clientSslStream = null;
+                }
+                if (null != _clientTcpClient)
+                {
+                    Console.WriteLine("Closed client tcp client");
+                    _clientTcpClient.Close();
+                    _clientTcpClient = null;
+                }
             }
         }
 
