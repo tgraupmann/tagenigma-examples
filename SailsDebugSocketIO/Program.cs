@@ -55,6 +55,7 @@ namespace SailsDebugSocketIO
             // keep listening and send a response
             while (true)
             {
+                Thread.Sleep(1);
                 TcpClient client = null;
                 try
                 {
@@ -71,7 +72,6 @@ namespace SailsDebugSocketIO
                 {
                     Console.Error.WriteLine("SocketServer: WorkerSocketServer exception={0}", ex);
                 }
-                Thread.Sleep(0);
             }
         }
 

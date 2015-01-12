@@ -28,9 +28,6 @@ namespace DebugHttpServer
         private TcpClient _serverTcpClient = null;
         private SslStream _serverSslStream = null;
 
-        private Thread _clientThread = null;
-        private Thread _serverThread = null;
-
         public Proxy(TcpClient client, string host, int port)
         {
             _clientTcpClient = client;
@@ -49,12 +46,12 @@ namespace DebugHttpServer
                 openServer();
 
                 ThreadStart ts = new ThreadStart(readClient);
-                _clientThread = new Thread(ts);
-                _clientThread.Start();
+                Thread clientThread = new Thread(ts);
+                clientThread.Start();
 
                 ts = new ThreadStart(readServer);
-                _serverThread = new Thread(ts);
-                _serverThread.Start();
+                Thread serverThread = new Thread(ts);
+                serverThread.Start();
 
                 while (null != _clientTcpClient &&
                        _clientTcpClient.Connected &&
@@ -63,7 +60,7 @@ namespace DebugHttpServer
                        null != _clientSslStream &&
                        null != _serverSslStream)
                 {
-                    Thread.Sleep(0);
+                    Thread.Sleep(1);
                 }
             }
             catch (System.Exception ex)
@@ -89,6 +86,7 @@ namespace DebugHttpServer
                    _serverTcpClient.Connected &&
                    null != _serverSslStream)
             {
+                Thread.Sleep(1);
                 try
                 {
                     int one = _clientSslStream.ReadByte();
@@ -144,10 +142,8 @@ namespace DebugHttpServer
                 {
                     Console.Error.WriteLine("Failed to read from client exception={0}", e);
                     closeConnections();
-                    _clientThread = null;
                     return;
                 }
-                Thread.Sleep(0);
             }
 
             Console.WriteLine("readClient complete");
@@ -160,6 +156,7 @@ namespace DebugHttpServer
                    _serverTcpClient.Connected &&
                    null != _serverSslStream)
             {
+                Thread.Sleep(1);
                 try
                 {
                     int one = _serverSslStream.ReadByte();
@@ -181,10 +178,8 @@ namespace DebugHttpServer
                 {
                     Console.Error.WriteLine("Failed to read from server exception={0}", e);
                     closeConnections();
-                    _serverThread = null;
                     return;
                 }
-                Thread.Sleep(0);
             }
             Console.WriteLine("readServer complete");
         }
