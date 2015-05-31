@@ -20,11 +20,9 @@ public class UVRefocusEditor : EditorWindow
 
     private bool _mCompileDetected = false;
 
-    private static MeshFilter[] _mMeshFilters = null;
+    private static GameObject[] _mMeshObjects = null;
 
-    private static SkinnedMeshRenderer[] _mSkinnedMeshRenderers = null;
-
-    private static MeshFilter _sSelectedMesh = null;
+    private static GameObject _sSelectedMesh = null;
 
     private static Texture2D _sReferenceUVMap = null;
 
@@ -98,33 +96,33 @@ public class UVRefocusEditor : EditorWindow
 
             GUILayout.Label(string.Format("VERSION={0}", VERSION));
 
-            if (null == _mMeshFilters)
+            if (null == _mMeshObjects)
             {
-                _mMeshFilters = new MeshFilter[0];
+                _mMeshObjects = new GameObject[0];
             }
 
-            int count = EditorGUILayout.IntField("Size", _mMeshFilters.Length);
-            if (count != _mMeshFilters.Length &&
+            int count = EditorGUILayout.IntField("Size", _mMeshObjects.Length);
+            if (count != _mMeshObjects.Length &&
                 count >= 0 &&
                 count < 100)
             {
-                _mMeshFilters = new MeshFilter[count];
+                _mMeshObjects = new GameObject[count];
                 EditorPrefs.SetInt("MeshCount", count);
                 ReloadMeshes(count);
             }
             for (int index = 0; index < count && count < 100; ++index)
             {
                 GUILayout.BeginHorizontal();
-                bool flag = GUILayout.Toggle(_sSelectedMesh == _mMeshFilters[index], string.Empty, GUILayout.Width(10));
-                _mMeshFilters[index] = (MeshFilter)EditorGUILayout.ObjectField(string.Format("Element {0}", index), _mMeshFilters[index], typeof(MeshFilter));
+                bool flag = GUILayout.Toggle(_sSelectedMesh == _mMeshObjects[index], string.Empty, GUILayout.Width(10));
+                _mMeshObjects[index] = (GameObject)EditorGUILayout.ObjectField(string.Format("Element {0}", index), _mMeshObjects[index], typeof(GameObject));
                 if (flag)
                 {
-                    _sSelectedMesh = _mMeshFilters[index];
+                    _sSelectedMesh = _mMeshObjects[index];
                 }
                 GUILayout.EndHorizontal();
-                if (null != _mMeshFilters[index])
+                if (null != _mMeshObjects[index])
                 {
-                    EditorPrefs.SetInt(string.Format("Mesh{0}", index), _mMeshFilters[index].GetInstanceID());
+                    EditorPrefs.SetInt(string.Format("Mesh{0}", index), _mMeshObjects[index].GetInstanceID());
                 }
             }
 
@@ -240,7 +238,7 @@ public class UVRefocusEditor : EditorWindow
 
     void ReloadMeshes(int count)
     {
-        _mMeshFilters = new MeshFilter[count];
+        _mMeshObjects = new GameObject[count];
         for (int index = 0; index < count; ++index)
         {
             string key = string.Format("Mesh{0}", index);
@@ -249,7 +247,7 @@ public class UVRefocusEditor : EditorWindow
                 continue;
             }
             int instanceId = EditorPrefs.GetInt(key);
-            _mMeshFilters[index] = (MeshFilter)EditorUtility.InstanceIDToObject(instanceId);
+            _mMeshObjects[index] = (GameObject)EditorUtility.InstanceIDToObject(instanceId);
         }
     }
 
@@ -326,17 +324,24 @@ public class UVRefocusEditor : EditorWindow
             _sInstanceUVMap = Instantiate(_sReferenceUVMap);
         }
 
-        foreach (MeshFilter mf in _mMeshFilters)
+        foreach (GameObject go in _mMeshObjects)
         {
+            MeshFilter mf = go.GetComponent<MeshFilter>();
             if (mf &&
                 mf.sharedMesh)
             {
-                Process(search, mf, mf.sharedMesh);
+                Process(search, go.transform, mf.sharedMesh);
+            }
+            SkinnedMeshRenderer mr = go.GetComponent<SkinnedMeshRenderer>();
+            if (mr &&
+                mr.sharedMesh)
+            {
+                Process(search, go.transform, mr.sharedMesh);
             }
         }
     }
 
-    private void Process(SearchLocations search, MeshFilter mf, Mesh mesh)
+    private void Process(SearchLocations search, Transform t, Mesh mesh)
     {
         if (null == mesh)
         {
@@ -635,8 +640,8 @@ public class UVRefocusEditor : EditorWindow
                 break;
         }
 
-        Vector3 pos = mf.gameObject.transform.position;
-        Quaternion rot = mf.gameObject.transform.rotation;
+        Vector3 pos = t.position;
+        Quaternion rot = t.rotation;
         for (int index = 0; index < verts.Length; ++index)
         {
             if (colors[index] == Color.white)
