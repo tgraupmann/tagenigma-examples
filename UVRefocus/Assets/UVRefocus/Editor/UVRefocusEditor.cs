@@ -22,6 +22,12 @@ public class UVRefocusEditor : EditorWindow
 
     private static Mesh[] _mMeshes = null;
 
+    private static Mesh _sSelectedMesh = null;
+
+    private static Texture2D _sReferenceUVMap = null;
+
+    private static Texture2D _sInstanceUVMap = null;
+
     /// <summary>
     /// Open an instance of the panel
     /// </summary>
@@ -99,7 +105,14 @@ public class UVRefocusEditor : EditorWindow
             }
             for (int index = 0; index < count && count < 100; ++index)
             {
+                GUILayout.BeginHorizontal();
+                bool flag = GUILayout.Toggle(_sSelectedMesh == _mMeshes[index], string.Empty, GUILayout.Width(10));
                 _mMeshes[index] = (Mesh)EditorGUILayout.ObjectField(string.Format("Element {0}", index), _mMeshes[index], typeof(Mesh));
+                if (flag)
+                {
+                    _sSelectedMesh = _mMeshes[index];
+                }
+                GUILayout.EndHorizontal();
                 if (null != _mMeshes[index])
                 {
                     EditorPrefs.SetString(string.Format("Mesh{0}", index), AssetDatabase.GetAssetPath(_mMeshes[index]));
@@ -198,6 +211,14 @@ public class UVRefocusEditor : EditorWindow
 
             GUILayout.Label(string.Empty);
 
+            _sReferenceUVMap = (Texture2D)EditorGUILayout.ObjectField(string.Empty, _sReferenceUVMap, typeof(Texture2D));
+
+            if (_sInstanceUVMap)
+            {
+                //GUILayout.Label(_sInstanceUVMap, GUILayout.Width(256), GUILayout.Height(256));
+                GUILayout.Label(_sInstanceUVMap);
+            }
+
             foreach (SearchLocations search in Enum.GetValues(typeof (SearchLocations)))
             {
                 if (GUILayout.Button(string.Format("{0}", search)))
@@ -227,6 +248,11 @@ public class UVRefocusEditor : EditorWindow
         if (EditorApplication.isCompiling)
         {
             _mCompileDetected = true;
+            if (_sInstanceUVMap)
+            {
+                DestroyImmediate(_sInstanceUVMap);
+                _sInstanceUVMap = null;
+            }
         }
         else if (_mCompileDetected)
         {
@@ -277,6 +303,17 @@ public class UVRefocusEditor : EditorWindow
 
     private void Find(SearchLocations search)
     {
+        if (_sInstanceUVMap)
+        {
+            DestroyImmediate(_sInstanceUVMap);
+            _sInstanceUVMap = null;
+        }
+
+        if (_sReferenceUVMap)
+        {
+            _sInstanceUVMap = Instantiate(_sReferenceUVMap);
+        }
+
         foreach (Mesh mesh in _mMeshes)
         {
             Process(search, mesh);
@@ -582,8 +619,47 @@ public class UVRefocusEditor : EditorWindow
                 break;
         }
 
+        if (_sSelectedMesh == mesh &&
+            _sInstanceUVMap)
+        {
+            //int[] triangles = mesh.triangles;
+            Vector2[] uvs = mesh.uv;
+            Color[] pixels = _sInstanceUVMap.GetPixels();
+            for (int index = 0; index < colors.Length; ++index)
+            {
+                if (colors[index] == Color.white)
+                {
+                    Vector2 uv = uvs[index];
+                    //SetPixelForUV(pixels, ref uv, Color.white);
+                    for (int y = 0; y < 10; ++y)
+                    {
+                        for (int x = 0; x < 10; ++x)
+                        {
+                            Vector2 temp = uv + new Vector2(x / (float)_sInstanceUVMap.width, y / (float)_sInstanceUVMap.height);
+                            SetPixelForUV(pixels, ref temp, Color.white);
+                        }
+                    }
+                }
+            }
+            _sInstanceUVMap.SetPixels(pixels);
+            _sInstanceUVMap.Apply();
+        }
+
         mesh.colors32 = colors;
         AssetDatabase.Refresh();
         Repaint();
+    }
+
+    void SetPixelForUV(Color[] pixels, ref Vector2 uv, Color color)
+    {
+        int x = (int)(uv.x * _sInstanceUVMap.width);
+        x = Mathf.Max(0, x);
+        x = Mathf.Min(_sInstanceUVMap.width - 1, x);
+
+        int y = (int)(uv.y * _sInstanceUVMap.height);
+        y = Mathf.Max(0, y);
+        y = Mathf.Min(_sInstanceUVMap.width - 1, y);
+
+        pixels[x + y * _sInstanceUVMap.width] = color;
     }
 }
