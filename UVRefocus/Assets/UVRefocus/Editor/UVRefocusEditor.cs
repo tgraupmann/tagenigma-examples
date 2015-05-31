@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.Remoting.Messaging;
 using System.Text;
+using TreeEditor;
 using UnityEditor;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -646,8 +647,17 @@ public class UVRefocusEditor : EditorWindow
         {
             if (colors[index] == Color.white)
             {
-                _sLines.Add(pos + rot*verts[index]);
-                _sLines.Add(pos + rot * verts[index] + rot * verts[index].normalized);
+                Vector3 v = verts[index];
+                Transform temp = t;
+                while (temp)
+                {
+                    v.x *= temp.localScale.x;
+                    v.y *= temp.localScale.y;
+                    v.z *= temp.localScale.z;
+                    temp = temp.parent;
+                }
+                _sLines.Add(pos + rot*v);
+                _sLines.Add(pos + rot*v + rot*v.normalized);
             }
         }
 
