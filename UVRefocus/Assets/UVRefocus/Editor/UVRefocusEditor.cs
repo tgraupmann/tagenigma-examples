@@ -57,6 +57,16 @@ public class UVRefocusEditor : EditorWindow
         RightArm,
         LeftHand,
         RightHand,
+        LeftThumb,
+        LeftIndex,
+        LeftMiddle,
+        LeftRing,
+        LeftPinky,
+        RightThumb,
+        RightIndex,
+        RightMiddle,
+        RightRing,
+        RightPinky,
         LeftLeg,
         RightLeg,
         LeftFoot,
@@ -137,6 +147,16 @@ public class UVRefocusEditor : EditorWindow
                 Find(SearchLocations.RightEye);
             }
             GUILayout.EndHorizontal();
+
+            if (GUILayout.Button("Nose"))
+            {
+                Find(SearchLocations.Nose);
+            }
+
+            if (GUILayout.Button("Mouth"))
+            {
+                Find(SearchLocations.Mouth);
+            }
 
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("L-Hand"))
@@ -370,6 +390,50 @@ public class UVRefocusEditor : EditorWindow
                         verts[index].y >= thresholdLower &&
                         verts[index].x <= thresholdLeft &&
                         verts[index].x >= thresholdRight &&
+                        verts[index].z >= thresholdFront)
+                    {
+                        colors[index] = Color.white;
+                    }
+                    else
+                    {
+                        colors[index] = Color.black;
+                    }
+                }
+                break;
+            case SearchLocations.Nose:
+                thresholdUpper = Mathf.Lerp(_mBoundsMin.y, _mBoundsMax.y, 0.93f);
+                thresholdLower = Mathf.Lerp(_mBoundsMin.y, _mBoundsMax.y, 0.9f);
+                thresholdLeft = Mathf.Lerp(_mBoundsMin.x, _mBoundsMax.x, 0.4925f);
+                thresholdRight = Mathf.Lerp(_mBoundsMin.x, _mBoundsMax.x, 0.5075f);
+                thresholdFront = Mathf.Lerp(_mBoundsMin.z, _mBoundsMax.z, 0.7f);
+                for (int index = 0; index < verts.Length; ++index)
+                {
+                    if (verts[index].y <= thresholdUpper &&
+                        verts[index].y >= thresholdLower &&
+                        verts[index].x >= thresholdLeft &&
+                        verts[index].x <= thresholdRight &&
+                        verts[index].z >= thresholdFront)
+                    {
+                        colors[index] = Color.white;
+                    }
+                    else
+                    {
+                        colors[index] = Color.black;
+                    }
+                }
+                break;
+            case SearchLocations.Mouth:
+                thresholdUpper = Mathf.Lerp(_mBoundsMin.y, _mBoundsMax.y, 0.905f);
+                thresholdLower = Mathf.Lerp(_mBoundsMin.y, _mBoundsMax.y, 0.89f);
+                thresholdLeft = Mathf.Lerp(_mBoundsMin.x, _mBoundsMax.x, 0.48f);
+                thresholdRight = Mathf.Lerp(_mBoundsMin.x, _mBoundsMax.x, 0.52f);
+                thresholdFront = Mathf.Lerp(_mBoundsMin.z, _mBoundsMax.z, 0.7f);
+                for (int index = 0; index < verts.Length; ++index)
+                {
+                    if (verts[index].y <= thresholdUpper &&
+                        verts[index].y >= thresholdLower &&
+                        verts[index].x >= thresholdLeft &&
+                        verts[index].x <= thresholdRight &&
                         verts[index].z >= thresholdFront)
                     {
                         colors[index] = Color.white;
