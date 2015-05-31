@@ -20,9 +20,11 @@ public class UVRefocusEditor : EditorWindow
 
     private bool _mCompileDetected = false;
 
-    private static Mesh[] _mMeshes = null;
+    private static MeshFilter[] _mMeshFilters = null;
 
-    private static Mesh _sSelectedMesh = null;
+    private static SkinnedMeshRenderer[] _mSkinnedMeshRenderers = null;
+
+    private static MeshFilter _sSelectedMesh = null;
 
     private static Texture2D _sReferenceUVMap = null;
 
@@ -79,6 +81,8 @@ public class UVRefocusEditor : EditorWindow
         RightFoot,
     }
 
+    static List<Vector3> _sLines = new List<Vector3>();
+
     void OnGUI()
     {
         if (_mCompileDetected)
@@ -87,35 +91,40 @@ public class UVRefocusEditor : EditorWindow
         }
         else
         {
-            GUILayout.Label(string.Format("VERSION={0}", VERSION));
-
-            if (null == _mMeshes)
+            for (int index = 0; index < _sLines.Count; index += 2)
             {
-                _mMeshes = new Mesh[0];
+                Debug.DrawLine(_sLines[index], _sLines[index+1], Color.white, Time.deltaTime, false);
             }
 
-            int count = EditorGUILayout.IntField("Size", _mMeshes.Length);
-            if (count != _mMeshes.Length &&
+            GUILayout.Label(string.Format("VERSION={0}", VERSION));
+
+            if (null == _mMeshFilters)
+            {
+                _mMeshFilters = new MeshFilter[0];
+            }
+
+            int count = EditorGUILayout.IntField("Size", _mMeshFilters.Length);
+            if (count != _mMeshFilters.Length &&
                 count >= 0 &&
                 count < 100)
             {
-                _mMeshes = new Mesh[count];
+                _mMeshFilters = new MeshFilter[count];
                 EditorPrefs.SetInt("MeshCount", count);
                 ReloadMeshes(count);
             }
             for (int index = 0; index < count && count < 100; ++index)
             {
                 GUILayout.BeginHorizontal();
-                bool flag = GUILayout.Toggle(_sSelectedMesh == _mMeshes[index], string.Empty, GUILayout.Width(10));
-                _mMeshes[index] = (Mesh)EditorGUILayout.ObjectField(string.Format("Element {0}", index), _mMeshes[index], typeof(Mesh));
+                bool flag = GUILayout.Toggle(_sSelectedMesh == _mMeshFilters[index], string.Empty, GUILayout.Width(10));
+                _mMeshFilters[index] = (MeshFilter)EditorGUILayout.ObjectField(string.Format("Element {0}", index), _mMeshFilters[index], typeof(MeshFilter));
                 if (flag)
                 {
-                    _sSelectedMesh = _mMeshes[index];
+                    _sSelectedMesh = _mMeshFilters[index];
                 }
                 GUILayout.EndHorizontal();
-                if (null != _mMeshes[index])
+                if (null != _mMeshFilters[index])
                 {
-                    EditorPrefs.SetString(string.Format("Mesh{0}", index), AssetDatabase.GetAssetPath(_mMeshes[index]));
+                    EditorPrefs.SetInt(string.Format("Mesh{0}", index), _mMeshFilters[index].GetInstanceID());
                 }
             }
 
@@ -231,7 +240,7 @@ public class UVRefocusEditor : EditorWindow
 
     void ReloadMeshes(int count)
     {
-        _mMeshes = new Mesh[count];
+        _mMeshFilters = new MeshFilter[count];
         for (int index = 0; index < count; ++index)
         {
             string key = string.Format("Mesh{0}", index);
@@ -239,7 +248,8 @@ public class UVRefocusEditor : EditorWindow
             {
                 continue;
             }
-            _mMeshes[index] = (Mesh)Resources.LoadAssetAtPath(EditorPrefs.GetString(key), typeof(Mesh));
+            int instanceId = EditorPrefs.GetInt(key);
+            _mMeshFilters[index] = (MeshFilter)EditorUtility.InstanceIDToObject(instanceId);
         }
     }
 
@@ -309,18 +319,24 @@ public class UVRefocusEditor : EditorWindow
             _sInstanceUVMap = null;
         }
 
+        _sLines.Clear();
+
         if (_sReferenceUVMap)
         {
             _sInstanceUVMap = Instantiate(_sReferenceUVMap);
         }
 
-        foreach (Mesh mesh in _mMeshes)
+        foreach (MeshFilter mf in _mMeshFilters)
         {
-            Process(search, mesh);
+            if (mf &&
+                mf.sharedMesh)
+            {
+                Process(search, mf, mf.sharedMesh);
+            }
         }
     }
 
-    private void Process(SearchLocations search, Mesh mesh)
+    private void Process(SearchLocations search, MeshFilter mf, Mesh mesh)
     {
         if (null == mesh)
         {
@@ -619,10 +635,33 @@ public class UVRefocusEditor : EditorWindow
                 break;
         }
 
+        Vector3 pos = mf.gameObject.transform.position;
+        Quaternion rot = mf.gameObject.transform.rotation;
+        for (int index = 0; index < verts.Length; ++index)
+        {
+            if (colors[index] == Color.white)
+            {
+                _sLines.Add(pos + rot*verts[index]);
+                _sLines.Add(pos + rot * verts[index] + rot * verts[index].normalized);
+            }
+        }
+
         if (_sSelectedMesh == mesh &&
             _sInstanceUVMap)
         {
-            //int[] triangles = mesh.triangles;
+            HighlightUVs(mesh, colors);
+        }
+
+        mesh.colors32 = colors;
+        AssetDatabase.Refresh();
+        Repaint();
+    }
+
+    void HighlightUVs(Mesh mesh, Color32[] colors)
+    {
+        if (mesh &&
+            _sInstanceUVMap)
+        {
             Vector2[] uvs = mesh.uv;
             Color[] pixels = _sInstanceUVMap.GetPixels();
             for (int index = 0; index < colors.Length; ++index)
@@ -644,10 +683,6 @@ public class UVRefocusEditor : EditorWindow
             _sInstanceUVMap.SetPixels(pixels);
             _sInstanceUVMap.Apply();
         }
-
-        mesh.colors32 = colors;
-        AssetDatabase.Refresh();
-        Repaint();
     }
 
     void SetPixelForUV(Color[] pixels, ref Vector2 uv, Color color)
