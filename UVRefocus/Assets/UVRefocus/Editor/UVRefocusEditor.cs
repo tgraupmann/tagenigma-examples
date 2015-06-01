@@ -92,7 +92,7 @@ public class UVRefocusEditor : EditorWindow
         {
             for (int index = 0; index < _sLines.Count; index += 2)
             {
-                Debug.DrawLine(_sLines[index], _sLines[index+1], Color.cyan, Time.deltaTime, false);
+                Debug.DrawLine(_sLines[index], _sLines[index+1], Color.cyan, Time.deltaTime, true);
             }
 
             GUILayout.Label(string.Format("VERSION={0}", VERSION));
@@ -706,7 +706,7 @@ public class UVRefocusEditor : EditorWindow
                 Vector3 perp = Vector3.Cross(side1, side2);
 
                 _sLines.Add(pos + rot * v);
-                _sLines.Add(pos + rot * v + rot * perp.normalized);
+                _sLines.Add(pos + rot * v + rot * perp.normalized * 0.1f);
             }
         }
         
