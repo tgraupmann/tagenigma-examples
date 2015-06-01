@@ -92,7 +92,7 @@ public class UVRefocusEditor : EditorWindow
         {
             for (int index = 0; index < _sLines.Count; index += 2)
             {
-                Debug.DrawLine(_sLines[index], _sLines[index+1], Color.white, Time.deltaTime, false);
+                Debug.DrawLine(_sLines[index], _sLines[index+1], Color.cyan, Time.deltaTime, false);
             }
 
             GUILayout.Label(string.Format("VERSION={0}", VERSION));
@@ -641,6 +641,22 @@ public class UVRefocusEditor : EditorWindow
                 break;
         }
 
+        int[] triangles = mesh.triangles;
+        HighlightFaces(t, triangles, verts, colors);
+
+        if (_sSelectedMesh == mesh &&
+            _sInstanceUVMap)
+        {
+            HighlightUVs(mesh, colors);
+        }
+
+        mesh.colors32 = colors;
+        AssetDatabase.Refresh();
+        Repaint();
+    }
+
+    void HighlightVerteces(Transform t, Vector3[] verts, Color32[] colors)
+    {
         Vector3 pos = t.position;
         Quaternion rot = t.rotation;
         for (int index = 0; index < verts.Length; ++index)
@@ -656,20 +672,57 @@ public class UVRefocusEditor : EditorWindow
                     v.z *= temp.localScale.z;
                     temp = temp.parent;
                 }
-                _sLines.Add(pos + rot*v);
-                _sLines.Add(pos + rot*v + rot*v.normalized);
+                _sLines.Add(pos + rot * v);
+                _sLines.Add(pos + rot * v + rot * v.normalized);
             }
         }
+    }
 
-        if (_sSelectedMesh == mesh &&
-            _sInstanceUVMap)
+    void HighlightFace(Transform t, int[] triangles, Vector3[] verts, Color32[] colors, int index)
+    {
+        Vector3 pos = t.position;
+        Quaternion rot = t.rotation;
+        for (int i = 0; i < triangles.Length; i += 3)
         {
-            HighlightUVs(mesh, colors);
-        }
+            int face1 = triangles[i];
+            int face2 = triangles[i+1];
+            int face3 = triangles[i+2];
+            if (face1 == index ||
+                face2 == index ||
+                face3 == index)
+            {
+                Vector3 v = (verts[face1] + verts[face2] + verts[face3]) / 3f;
+                Transform temp = t;
+                while (temp)
+                {
+                    v.x *= temp.localScale.x;
+                    v.y *= temp.localScale.y;
+                    v.z *= temp.localScale.z;
+                    temp = temp.parent;
+                }
 
-        mesh.colors32 = colors;
-        AssetDatabase.Refresh();
-        Repaint();
+                Vector3 side1 = verts[face2] - verts[face1];
+                Vector3 side2 = verts[face3] - verts[face1];
+                Vector3 perp = Vector3.Cross(side1, side2);
+
+                _sLines.Add(pos + rot * v);
+                _sLines.Add(pos + rot * v + rot * perp.normalized);
+            }
+        }
+        
+    }
+
+    void HighlightFaces(Transform t, int[] triangles, Vector3[] verts, Color32[] colors)
+    {
+        Vector3 pos = t.position;
+        Quaternion rot = t.rotation;
+        for (int index = 0; index < verts.Length; ++index)
+        {
+            if (colors[index] == Color.white)
+            {
+                HighlightFace(t, triangles, verts, colors, index);
+            }
+        }
     }
 
     void HighlightUVs(Mesh mesh, Color32[] colors)
