@@ -990,7 +990,7 @@ public class UVRefocusEditor : EditorWindow
             Color[] pixels = _sInstanceUVMap.GetPixels();
             for (int index = 0; index < colors.Length; ++index)
             {
-                if (colors[index] == Color.white)
+                if (colors[index] == Color.black)
                 {
                     Vector2 uv = uvs[index];
                     //SetPixelForUV(pixels, ref uv, Color.white);
