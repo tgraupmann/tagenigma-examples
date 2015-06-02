@@ -51,7 +51,7 @@ public class UVRefocusEditor : EditorWindow
         GetPanel();
     }
 
-    enum SearchLocations
+    private enum SearchLocations
     {
         None,
         TopHalf,
@@ -81,9 +81,9 @@ public class UVRefocusEditor : EditorWindow
         RightFoot,
     }
 
-    static List<KeyValuePair<Vector3, Color32>> _sLines = new List<KeyValuePair<Vector3, Color32>>();
+    private static List<KeyValuePair<Vector3, Color32>> _sLines = new List<KeyValuePair<Vector3, Color32>>();
 
-    void OnGUI()
+    private void OnGUI()
     {
         if (_mCompileDetected)
         {
@@ -93,7 +93,7 @@ public class UVRefocusEditor : EditorWindow
         {
             for (int index = 0; index < _sLines.Count; index += 2)
             {
-                Debug.DrawLine(_sLines[index].Key, _sLines[index+1].Key, _sLines[index].Value, Time.deltaTime, true);
+                Debug.DrawLine(_sLines[index].Key, _sLines[index + 1].Key, _sLines[index].Value, Time.deltaTime, true);
             }
 
             GUILayout.Label(string.Format("VERSION={0}", VERSION));
@@ -116,7 +116,10 @@ public class UVRefocusEditor : EditorWindow
             {
                 GUILayout.BeginHorizontal();
                 bool flag = GUILayout.Toggle(_sSelectedMesh == _mMeshObjects[index], string.Empty, GUILayout.Width(10));
-                _mMeshObjects[index] = (GameObject)EditorGUILayout.ObjectField(string.Format("Element {0}", index), _mMeshObjects[index], typeof(GameObject));
+                _mMeshObjects[index] =
+                    (GameObject)
+                        EditorGUILayout.ObjectField(string.Format("Element {0}", index), _mMeshObjects[index],
+                            typeof (GameObject));
                 if (flag)
                 {
                     _sSelectedMesh = _mMeshObjects[index];
@@ -224,7 +227,7 @@ public class UVRefocusEditor : EditorWindow
 
             GUILayout.Label(string.Empty);
 
-            Texture2D tex = (Texture2D)EditorGUILayout.ObjectField(string.Empty, _sReferenceUVMap, typeof(Texture2D));
+            Texture2D tex = (Texture2D) EditorGUILayout.ObjectField(string.Empty, _sReferenceUVMap, typeof (Texture2D));
             if (tex != _sReferenceUVMap)
             {
                 _sReferenceUVMap = tex;
@@ -250,7 +253,7 @@ public class UVRefocusEditor : EditorWindow
         }
     }
 
-    void ReloadMeshes(int count)
+    private void ReloadMeshes(int count)
     {
         _mMeshObjects = new GameObject[count];
         for (int index = 0; index < count; ++index)
@@ -261,13 +264,13 @@ public class UVRefocusEditor : EditorWindow
                 continue;
             }
             int instanceId = EditorPrefs.GetInt(key);
-            _mMeshObjects[index] = (GameObject)EditorUtility.InstanceIDToObject(instanceId);
+            _mMeshObjects[index] = (GameObject) EditorUtility.InstanceIDToObject(instanceId);
         }
 
         if (EditorPrefs.HasKey("SelectedMesh"))
         {
             int instanceId = EditorPrefs.GetInt("SelectedMesh");
-            _sSelectedMesh = (GameObject)EditorUtility.InstanceIDToObject(instanceId);
+            _sSelectedMesh = (GameObject) EditorUtility.InstanceIDToObject(instanceId);
         }
         else
         {
@@ -277,11 +280,11 @@ public class UVRefocusEditor : EditorWindow
         if (EditorPrefs.HasKey("UVTex"))
         {
             int instanceId = EditorPrefs.GetInt("UVTex");
-            _sReferenceUVMap = (Texture2D)EditorUtility.InstanceIDToObject(instanceId);
+            _sReferenceUVMap = (Texture2D) EditorUtility.InstanceIDToObject(instanceId);
         }
     }
 
-    void Update()
+    private void Update()
     {
         if (EditorApplication.isCompiling)
         {
@@ -304,7 +307,7 @@ public class UVRefocusEditor : EditorWindow
         }
     }
 
-    void ClearColor(Mesh mesh)
+    private void ClearColor(Mesh mesh)
     {
         Color32[] colors = mesh.colors32;
         for (int index = 0; index < colors.Length; ++index)
@@ -318,7 +321,7 @@ public class UVRefocusEditor : EditorWindow
     private Vector3 _mBoundsMax = Vector3.zero;
     private Vector3 _mBoundsMid = Vector3.zero;
 
-    void CalculateBounds(Vector3[] verts)
+    private void CalculateBounds(Vector3[] verts)
     {
         if (verts.Length > 0)
         {
@@ -686,13 +689,13 @@ public class UVRefocusEditor : EditorWindow
         Repaint();
     }
 
-    void HighlightVerteces(Transform t, Vector3[] verts, Color32[] colors)
+    private void HighlightVerteces(Transform t, Vector3[] verts, Color32[] colors)
     {
         Vector3 pos = t.position;
         Quaternion rot = t.rotation;
         for (int index = 0; index < verts.Length; ++index)
         {
-            if (colors[index] == Color.white)
+            if (colors[index] != Color.black)
             {
                 Vector3 v = verts[index];
                 Transform temp = t;
@@ -703,21 +706,49 @@ public class UVRefocusEditor : EditorWindow
                     v.z *= temp.localScale.z;
                     temp = temp.parent;
                 }
-                _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v, Color.cyan));
-                _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v + rot * v.normalized, Color.cyan));
+                _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot*v, Color.cyan));
+                _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot*v + rot*v.normalized, Color.cyan));
             }
         }
     }
 
-    void HighlightFace(Transform t, int[] triangles, Vector3[] verts, Color32[] colors, int index)
+    private void HighlightVertex(Transform t, int[] triangles, Vector3[] verts, Color32[] colors, int index,
+        Color32 color, float length)
+    {
+        Vector3 pos = t.position;
+        Quaternion rot = t.rotation;
+
+        Vector3 v = verts[index];
+        Transform temp = t;
+        while (temp)
+        {
+            v.x *= temp.localScale.x;
+            v.y *= temp.localScale.y;
+            v.z *= temp.localScale.z;
+            temp = temp.parent;
+        }
+
+        int face1 = index - (index%3);
+        int face2 = face1 + 1;
+        int face3 = face1 + 2;
+
+        Vector3 side1 = verts[face2] - verts[face1];
+        Vector3 side2 = verts[face3] - verts[face1];
+        Vector3 perp = Vector3.Cross(side1, side2);
+
+        _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot*v, color));
+        _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot*v + rot*perp.normalized*length, color));
+    }
+
+    void HighlightFace(Transform t, int[] triangles, Vector3[] verts, Color32[] colors, int index, Color32 color)
     {
         Vector3 pos = t.position;
         Quaternion rot = t.rotation;
         for (int i = 0; i < triangles.Length; i += 3)
         {
             int face1 = triangles[i];
-            int face2 = triangles[i+1];
-            int face3 = triangles[i+2];
+            int face2 = triangles[i + 1];
+            int face3 = triangles[i + 2];
             if (face1 == index ||
                 face2 == index ||
                 face3 == index)
@@ -736,11 +767,34 @@ public class UVRefocusEditor : EditorWindow
                 Vector3 side2 = verts[face3] - verts[face1];
                 Vector3 perp = Vector3.Cross(side1, side2);
 
-                _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v, Color.cyan));
-                _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v + rot * perp.normalized * 0.1f, Color.cyan));
+                _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v, color));
+                _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v + rot * perp.normalized * 0.2f, color));
+
+                /*
+                float ratio1 = Vector3.Dot(Vector3.right, perp.normalized);
+                //float ratio1 = Vector3.Dot(new Vector3(-1, 0, -1).normalized, perp.normalized);
+                if (Mathf.Abs(ratio1) < 0.5f)
+                {
+                    colors[face1] = Color.black;
+                }
+                else if (ratio1 > 0f)
+                {
+                    colors[face1] = Color.Lerp(Color.black, Color.red, Mathf.Abs(ratio1));
+                }
+                else
+                {
+                    colors[face1] = Color.Lerp(Color.black, Color.green, Mathf.Abs(ratio1));
+                }
+                colors[face2] = colors[face1];
+                colors[face3] = colors[face1];
+                */
             }
         }
-        
+    }
+
+    void HighlightFace(Transform t, int[] triangles, Vector3[] verts, Color32[] colors, int index)
+    {
+        HighlightFace(t, triangles, verts, colors, index, Color.cyan);
     }
 
     void HighlightFaces(Transform t, int[] triangles, Vector3[] verts, Color32[] colors)
@@ -749,27 +803,22 @@ public class UVRefocusEditor : EditorWindow
         Quaternion rot = t.rotation;
         for (int index = 0; index < verts.Length; ++index)
         {
-            if (colors[index] == Color.white)
+            if (colors[index] != Color.black)
             {
                 HighlightFace(t, triangles, verts, colors, index);
             }
         }
     }
 
-    void AddFace(Dictionary<int, List<int>> dictFaces, int face1, int face2, int face3)
+    void AddFace(Dictionary<int, List<int>> dictFaces, int face, int face1, int face2, int face3)
     {
-        if (!dictFaces.ContainsKey(face1))
+        if (!dictFaces.ContainsKey(face))
         {
-            dictFaces[face1] = new List<int>();
+            dictFaces[face] = new List<int>();
         }
-        if (!dictFaces[face1].Contains(face2))
-        {
-            dictFaces[face1].Add(face2);
-        }
-        if (!dictFaces[face1].Contains(face3))
-        {
-            dictFaces[face1].Add(face3);
-        }
+        dictFaces[face].Add(face1);
+        dictFaces[face].Add(face2);
+        dictFaces[face].Add(face3);
     }
 
     void FindRightFingers(Transform t, int[] triangles, Vector3[] verts, Color32[] colors)
@@ -789,13 +838,13 @@ public class UVRefocusEditor : EditorWindow
             int face2 = triangles[i + 1];
             int face3 = triangles[i + 2];
 
-            if (colors[face1] == Color.white ||
-                colors[face2] == Color.white ||
-                colors[face3] == Color.white)
+            if (colors[face1] != Color.black ||
+                colors[face2] != Color.black ||
+                colors[face3] != Color.black)
             {
-                AddFace(dictFaces, face1, face2, face3);
-                AddFace(dictFaces, face2, face3, face1);
-                AddFace(dictFaces, face3, face1, face2);
+                AddFace(dictFaces, face1, face1, face2, face3);
+                AddFace(dictFaces, face2, face1, face2, face3);
+                AddFace(dictFaces, face3, face1, face2, face3);
             }
         }
 
@@ -840,9 +889,9 @@ public class UVRefocusEditor : EditorWindow
                 int face = kvp.Key;
                 if (verts[face].x == boundsMin.x)
                 {
-                    int face1 = face - (face % 3);
-                    int face2 = face1 + 1;
-                    int face3 = face1 + 2;
+                    int face1 = dictFaces[face][0];
+                    int face2 = dictFaces[face][1];
+                    int face3 = dictFaces[face][2];
 
                     Vector3 side1 = verts[face2] - verts[face1];
                     Vector3 side2 = verts[face3] - verts[face1];
@@ -890,12 +939,12 @@ public class UVRefocusEditor : EditorWindow
                 return verts[index1].x.CompareTo(verts[index2].x);
             });
 
-        if (true)
+        if (sortedFaces.Count > 0)
         {
-            int face1 = sortedFaces[0] - (sortedFaces[0]%3);
-            int face2 = face1 + 1;
-            int face3 = face1 + 2;
-            DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face1], GetPerpendicular(verts, face1), Color.red, 1);
+            int face1 = dictFaces[sortedFaces[0]][0];
+            int face2 = dictFaces[sortedFaces[0]][1];
+            int face3 = dictFaces[sortedFaces[0]][2];
+            DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face1], GetPerpendicular(verts, face1, face2, face3), Color.red, 1);
 
             DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
             DrawPointInWorldSpace(t, ref pos, ref rot, verts[face2], Color.green);
@@ -912,25 +961,59 @@ public class UVRefocusEditor : EditorWindow
         // highlight the edge polys
         foreach (int face in sortedFaces)
         {
-            int face1 = face - (face%3);
+            int face1 = dictFaces[face][0];
+            int face2 = dictFaces[face][1];
+            int face3 = dictFaces[face][2];
             if (!visited.Contains(face))
             {
                 visited.Add(face);
                 //Color32 color = Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1)/(float) sortedFaces.Count);
                 //DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face1], GetPerpendicular(verts, face1), color, 0.5f);
-                colors[face1] = Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1) / (float)sortedFaces.Count);
-                colors[face1 + 1] = Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1+1) / (float)sortedFaces.Count);
-                colors[face1 + 2] = Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1+2) / (float)sortedFaces.Count);
+
+                float ratio1;
+                float ratio2;
+                float ratio3;
+
+                // use triangles to get faces
+
+                ratio1 = sortedFaces.IndexOf(face1)/(float) sortedFaces.Count;
+                ratio2 = sortedFaces.IndexOf(face2) / (float)sortedFaces.Count;
+                ratio3 = sortedFaces.IndexOf(face3) / (float)sortedFaces.Count;
+
+                Vector3 perp = GetPerpendicular(verts, face1, face2, face3);
+                //colors[face1] = Color.Lerp(Color.magenta, Color.yellow, ratio1);
+                //colors[face2] = Color.Lerp(Color.magenta, Color.yellow, ratio2);
+                //colors[face3] = Color.Lerp(Color.magenta, Color.yellow, ratio3);
+
+                ratio1 = Vector3.Dot(Vector3.right, perp.normalized);
+                //float ratio1 = Vector3.Dot(new Vector3(-1, 0, -1).normalized, perp.normalized);
+                if (Mathf.Abs(ratio1) < 0.5f)
+                {
+                    colors[face1] = Color.white;
+                }
+                else if (ratio1 > 0f)
+                {
+                    colors[face1] = Color.Lerp(Color.black, Color.magenta, Mathf.Abs(ratio1));
+                }
+                else
+                {
+                    colors[face1] = Color.Lerp(Color.black, Color.green, Mathf.Abs(ratio1));
+                }
+                colors[face2] = colors[face1];
+                colors[face3] = colors[face1];
+
+                //HighlightFace(t, triangles, verts, colors, face, Color.green);
+                //HighlightVertex(t, triangles, verts, colors, face, Color.black, 0.25f);
             }
         }
 
         #endregion
     }
 
-    Vector3 GetPerpendicular(Vector3[] verts, int face)
+    Vector3 GetPerpendicular(Vector3[] verts, int face1, int face2, int face3)
     {
-        Vector3 side1 = verts[face + 1] - verts[face];
-        Vector3 side2 = verts[face + 2] - verts[face];
+        Vector3 side1 = verts[face2] - verts[face1];
+        Vector3 side2 = verts[face3] - verts[face1];
         return Vector3.Cross(side1, side2);
     }
 
