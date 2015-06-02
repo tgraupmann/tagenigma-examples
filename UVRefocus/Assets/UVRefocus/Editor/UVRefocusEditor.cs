@@ -120,6 +120,10 @@ public class UVRefocusEditor : EditorWindow
                 if (flag)
                 {
                     _sSelectedMesh = _mMeshObjects[index];
+                    if (_sSelectedMesh)
+                    {
+                        EditorPrefs.SetInt("SelectedMesh", _sSelectedMesh.GetInstanceID());
+                    }
                 }
                 GUILayout.EndHorizontal();
                 if (null != _mMeshObjects[index])
@@ -258,6 +262,16 @@ public class UVRefocusEditor : EditorWindow
             }
             int instanceId = EditorPrefs.GetInt(key);
             _mMeshObjects[index] = (GameObject)EditorUtility.InstanceIDToObject(instanceId);
+        }
+
+        if (EditorPrefs.HasKey("SelectedMesh"))
+        {
+            int instanceId = EditorPrefs.GetInt("SelectedMesh");
+            _sSelectedMesh = (GameObject)EditorUtility.InstanceIDToObject(instanceId);
+        }
+        else
+        {
+            _sSelectedMesh = null;
         }
 
         if (EditorPrefs.HasKey("UVTex"))
@@ -763,6 +777,10 @@ public class UVRefocusEditor : EditorWindow
         Vector3 pos = t.position;
         Quaternion rot = t.rotation;
 
+        List<int> visited = new List<int>();
+
+        #region Build a dictionary for quick face look-up
+
         // find all the shared faces
         Dictionary<int, List<int>> dictFaces = new Dictionary<int, List<int>>();
         for (int i = 0; i < triangles.Length; i += 3)
@@ -780,6 +798,10 @@ public class UVRefocusEditor : EditorWindow
                 AddFace(dictFaces, face3, face1, face2);
             }
         }
+
+        #endregion
+
+        #region calculate selected bounding box
 
         //find the bounding box
         Vector3 boundsMin = Vector3.zero;
@@ -806,44 +828,114 @@ public class UVRefocusEditor : EditorWindow
             ++index;
         }
 
-        Color32 orange = new Color32(255, 128, 0, 255);
+        #endregion
 
-        List<int> visited = new List<int>();
+        #region Show right-most edge
 
-        // highlight the edge polys
-        foreach (KeyValuePair<int, List<int>> kvp in dictFaces)
+        if (_sSelectedMesh == t.gameObject)
         {
-            int face = kvp.Key;
-            if (verts[face].x == boundsMin.x)
+            // highlight the edge polys
+            foreach (KeyValuePair<int, List<int>> kvp in dictFaces)
             {
-                int face1 = face - (face%3);
-                int face2 = face1 + 1;
-                int face3 = face1 + 2;
-
-                Vector3 side1 = verts[face2] - verts[face1];
-                Vector3 side2 = verts[face3] - verts[face1];
-                Vector3 perp = Vector3.Cross(side1, side2);
-
-                if (!visited.Contains(face))
+                int face = kvp.Key;
+                if (verts[face].x == boundsMin.x)
                 {
-                    visited.Add(face);
-                    DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face], perp, Color.red);
+                    int face1 = face - (face % 3);
+                    int face2 = face1 + 1;
+                    int face3 = face1 + 2;
 
-                    DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
-                    DrawPointInWorldSpace(t, ref pos, ref rot, verts[face2], Color.green);
-                    DrawPointInWorldSpace(t, ref pos, ref rot, verts[face2], Color.green);
-                    DrawPointInWorldSpace(t, ref pos, ref rot, verts[face3], Color.green);
-                    DrawPointInWorldSpace(t, ref pos, ref rot, verts[face3], Color.green);
-                    DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
+                    Vector3 side1 = verts[face2] - verts[face1];
+                    Vector3 side2 = verts[face3] - verts[face1];
+                    Vector3 perp = Vector3.Cross(side1, side2);
 
-                    if (_sSelectedMesh == t.gameObject)
+                    if (!visited.Contains(face))
                     {
-                        SceneView.lastActiveSceneView.LookAt(DrawVectorInWorldSpace(t, ref pos, ref rot,
-                            verts[face], perp, Color.red));
+                        visited.Add(face);
+                        DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face], perp, Color.red);
+
+                        /*
+                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
+                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face2], Color.green);
+                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face2], Color.green);
+                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face3], Color.green);
+                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face3], Color.green);
+                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
+                         */
+
+                        if (_sSelectedMesh == t.gameObject)
+                        {
+                            SceneView.lastActiveSceneView.LookAt(DrawVectorInWorldSpace(t, ref pos, ref rot,
+                                verts[face], perp, Color.red));
+                        }
                     }
                 }
             }
         }
+
+        #endregion
+
+        #region Show Right-most face
+
+        //sort faces
+        List<int> sortedFaces = new List<int>();
+        foreach (KeyValuePair<int, List<int>> kvp in dictFaces)
+        {
+            int face = kvp.Key;
+            sortedFaces.Add(face);
+        }
+        //sort faces by X
+        sortedFaces.Sort(
+            delegate(int index1, int index2)
+            {
+                return verts[index1].x.CompareTo(verts[index2].x);
+            });
+
+        if (true)
+        {
+            int face1 = sortedFaces[0] - (sortedFaces[0]%3);
+            int face2 = face1 + 1;
+            int face3 = face1 + 2;
+            DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face1], GetPerpendicular(verts, face1), Color.red, 1);
+
+            DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
+            DrawPointInWorldSpace(t, ref pos, ref rot, verts[face2], Color.green);
+            DrawPointInWorldSpace(t, ref pos, ref rot, verts[face2], Color.green);
+            DrawPointInWorldSpace(t, ref pos, ref rot, verts[face3], Color.green);
+            DrawPointInWorldSpace(t, ref pos, ref rot, verts[face3], Color.green);
+            DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
+        }
+
+        #endregion
+
+        #region Show sort order with gradient
+
+        // highlight the edge polys
+        foreach (int face in sortedFaces)
+        {
+            int face1 = face - (face%3);
+            if (!visited.Contains(face))
+            {
+                visited.Add(face);
+                DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face1], GetPerpendicular(verts, face1),
+                    Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1) / (float)sortedFaces.Count), 0.5f);
+            }
+        }
+
+        #endregion
+    }
+
+    Vector3 GetPerpendicular(Vector3[] verts, int face)
+    {
+        Vector3 side1 = verts[face + 1] - verts[face];
+        Vector3 side2 = verts[face + 2] - verts[face];
+        return Vector3.Cross(side1, side2);
+    }
+
+    class Face
+    {
+        public int _mP1 = 0;
+        public int _mP2 = 0;
+        public int _mP3 = 0;
     }
 
     Vector3 DrawVectorInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v, Vector3 direction, Color32 color)
@@ -857,9 +949,25 @@ public class UVRefocusEditor : EditorWindow
             temp = temp.parent;
         }
         _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v, color));
-        _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v + rot * direction.normalized * 0.5f, color));
+        _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v + rot * direction.normalized * 0.2f, color));
 
         return pos + rot*v;
+    }
+
+    Vector3 DrawVectorInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v, Vector3 direction, Color32 color, float length)
+    {
+        Transform temp = t;
+        while (temp)
+        {
+            v.x *= temp.localScale.x;
+            v.y *= temp.localScale.y;
+            v.z *= temp.localScale.z;
+            temp = temp.parent;
+        }
+        _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v, color));
+        _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v + rot * direction.normalized * length, color));
+
+        return pos + rot * v;
     }
 
     Vector3 DrawPointInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v, Color32 color)
