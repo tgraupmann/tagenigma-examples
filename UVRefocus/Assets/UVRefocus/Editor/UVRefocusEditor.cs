@@ -916,8 +916,11 @@ public class UVRefocusEditor : EditorWindow
             if (!visited.Contains(face))
             {
                 visited.Add(face);
-                DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face1], GetPerpendicular(verts, face1),
-                    Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1) / (float)sortedFaces.Count), 0.5f);
+                //Color32 color = Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1)/(float) sortedFaces.Count);
+                //DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face1], GetPerpendicular(verts, face1), color, 0.5f);
+                colors[face1] = Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1) / (float)sortedFaces.Count);
+                colors[face1 + 1] = Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1+1) / (float)sortedFaces.Count);
+                colors[face1 + 2] = Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1+2) / (float)sortedFaces.Count);
             }
         }
 
@@ -929,13 +932,6 @@ public class UVRefocusEditor : EditorWindow
         Vector3 side1 = verts[face + 1] - verts[face];
         Vector3 side2 = verts[face + 2] - verts[face];
         return Vector3.Cross(side1, side2);
-    }
-
-    class Face
-    {
-        public int _mP1 = 0;
-        public int _mP2 = 0;
-        public int _mP3 = 0;
     }
 
     Vector3 DrawVectorInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v, Vector3 direction, Color32 color)
