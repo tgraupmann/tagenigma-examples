@@ -144,7 +144,7 @@ Material:
       data:
         first:
           name: _IntensityVC
-        second: 1
+        second: 3
     m_Colors:
       data:
         first:

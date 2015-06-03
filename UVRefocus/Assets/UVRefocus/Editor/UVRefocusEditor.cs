@@ -1057,11 +1057,12 @@ public class UVRefocusEditor : EditorWindow
         {
             if (marchList.Contains(adjacent))
             {
+                marchList.Remove(adjacent);
                 marchCounts[adjacent] = order;
                 ++order;
             }
         }
-
+        /*
         foreach (int adjacent in sortedAdjacents)
         {
             if (marchList.Contains(adjacent))
@@ -1070,6 +1071,7 @@ public class UVRefocusEditor : EditorWindow
                 RecursiveMarch(dictFaces, sortedFaces, marchList, adjacent, marchCounts, ref order);
             }
         }
+        */
     }
 
     Vector3 GetPerpendicular(Vector3[] verts, int face1, int face2, int face3)
