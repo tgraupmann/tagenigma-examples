@@ -1005,18 +1005,43 @@ public class UVRefocusEditor : EditorWindow
 
         #region Marching Algorithm
 
+        for (int i = 0; i < colors.Length; ++i)
+        {
+            colors[i] = Color.black;
+        }
+
         List<int> marchList = new List<int>();
         foreach (int face in sortedFaces)
         {
             marchList.Add(face);
         }
 
+        List<int> searchableList = new List<int>();
+        searchableList.Add(marchList[0]);
+
         Dictionary<int, int> marchCounts = new Dictionary<int, int>();
         int order = 0;
         while (marchList.Count > 0)
         {
-            RecursiveMarch(dictFaces, sortedFaces, marchList, marchList[0], marchCounts, ref order);
+            Debug.Log("SearchCount: " + searchableList.Count);
+            if (searchableList.Count > 0)
+            {
+                RecursiveMarch(searchableList, dictFaces, sortedFaces, marchList, searchableList[0], marchCounts,
+                    ref order, 0);
+            }
+            else
+            {
+                Debug.Log("Out of things to search for...");
+                RecursiveMarch(searchableList, dictFaces, sortedFaces, marchList, marchList[0], marchCounts,
+                    ref order, 0);
+            }
+            if (searchableList.Count == 0)
+            {
+                break;
+            }
         }
+
+        #region show result
 
         foreach (KeyValuePair<int, int> kvp in marchCounts)
         {
@@ -1035,40 +1060,63 @@ public class UVRefocusEditor : EditorWindow
         }
 
         #endregion
+
+        #endregion
     }
 
-    void RecursiveMarch(Dictionary<int, List<int>> dictFaces, List<int> sortedFaces, List<int> marchList, int march, Dictionary<int, int> marchCounts, ref int order)
+    void RecursiveMarch(List<int> searchableList, Dictionary<int, List<int>> dictFaces, List<int> sortedFaces, List<int> marchList, int march, Dictionary<int, int> marchCounts, ref int order, int depth)
     {
-        List<int> sortedAdjacents = new List<int>();
+        //Debug.Log("March: "+march);
+        if (searchableList.Contains(march))
+        {
+            searchableList.Remove(march);
+            marchCounts[march] = order;
+            ++order;
+        }
+
+        if (marchList.Contains(march))
+        {
+            marchList.Remove(march);
+        }
 
         foreach (int adjacent in dictFaces[march])
         {
-            sortedAdjacents.Add(adjacent);
+            //Debug.Log("Adjacent: " + adjacent);
+            if (marchList.Contains(adjacent) &&
+                !searchableList.Contains(adjacent))
+            {
+                searchableList.Add(adjacent);
+            }
         }
 
         //sort faces by X
-        sortedAdjacents.Sort(
+        searchableList.Sort(
             delegate(int index1, int index2)
             {
                 return sortedFaces.IndexOf(index1).CompareTo(sortedFaces.IndexOf(index2));
             });
 
+        /*
+
         foreach (int adjacent in sortedAdjacents)
         {
-            if (marchList.Contains(adjacent))
+            if (!searchableList.Contains(adjacent))
             {
-                marchList.Remove(adjacent);
+                searchableList.Add(adjacent);
+            }
+            if (!marchCounts.ContainsKey(adjacent))
+            {
                 marchCounts[adjacent] = order;
                 ++order;
+                nextAdjacents.Add(adjacent);
             }
         }
-        /*
-        foreach (int adjacent in sortedAdjacents)
+        if (depth < 1)
         {
-            if (marchList.Contains(adjacent))
+            foreach (int adjacent in nextAdjacents)
             {
-                marchList.Remove(adjacent);
-                RecursiveMarch(dictFaces, sortedFaces, marchList, adjacent, marchCounts, ref order);
+                RecursiveMarch(searchableList, dictFaces, sortedFaces, marchList, adjacent, marchCounts, ref order,
+                    depth + 1);
             }
         }
         */
