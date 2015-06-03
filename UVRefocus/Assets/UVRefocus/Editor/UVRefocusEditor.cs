@@ -923,7 +923,7 @@ public class UVRefocusEditor : EditorWindow
 
         #endregion
 
-        #region Show Right-most face
+        #region Sort faces from the right
 
         //sort faces
         List<int> sortedFaces = new List<int>();
@@ -967,29 +967,23 @@ public class UVRefocusEditor : EditorWindow
             if (!visited.Contains(face))
             {
                 visited.Add(face);
-                //Color32 color = Color.Lerp(Color.magenta, Color.yellow, sortedFaces.IndexOf(face1)/(float) sortedFaces.Count);
-                //DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face1], GetPerpendicular(verts, face1), color, 0.5f);
 
                 float ratio1;
                 float ratio2;
                 float ratio3;
 
-                // use triangles to get faces
-
-                ratio1 = sortedFaces.IndexOf(face1)/(float) sortedFaces.Count;
-                ratio2 = sortedFaces.IndexOf(face2) / (float)sortedFaces.Count;
-                ratio3 = sortedFaces.IndexOf(face3) / (float)sortedFaces.Count;
-
                 Vector3 perp = GetPerpendicular(verts, face1, face2, face3);
-                //colors[face1] = Color.Lerp(Color.magenta, Color.yellow, ratio1);
-                //colors[face2] = Color.Lerp(Color.magenta, Color.yellow, ratio2);
-                //colors[face3] = Color.Lerp(Color.magenta, Color.yellow, ratio3);
 
                 ratio1 = Vector3.Dot(Vector3.right, perp.normalized);
-                //float ratio1 = Vector3.Dot(new Vector3(-1, 0, -1).normalized, perp.normalized);
                 if (Mathf.Abs(ratio1) < 0.5f)
                 {
-                    colors[face1] = Color.white;
+                    ratio1 = sortedFaces.IndexOf(face1) / (float)sortedFaces.Count;
+                    ratio2 = sortedFaces.IndexOf(face2) / (float)sortedFaces.Count;
+                    ratio3 = sortedFaces.IndexOf(face3) / (float)sortedFaces.Count;
+
+                    colors[face1] = Color.Lerp(Color.magenta, Color.yellow, ratio1);
+                    colors[face2] = Color.Lerp(Color.magenta, Color.yellow, ratio2);
+                    colors[face3] = Color.Lerp(Color.magenta, Color.yellow, ratio3);
                 }
                 else if (ratio1 > 0f)
                 {
@@ -1008,6 +1002,74 @@ public class UVRefocusEditor : EditorWindow
         }
 
         #endregion
+
+        #region Marching Algorithm
+
+        List<int> marchList = new List<int>();
+        foreach (int face in sortedFaces)
+        {
+            marchList.Add(face);
+        }
+
+        Dictionary<int, int> marchCounts = new Dictionary<int, int>();
+        int order = 0;
+        while (marchList.Count > 0)
+        {
+            RecursiveMarch(dictFaces, sortedFaces, marchList, marchList[0], marchCounts, ref order);
+        }
+
+        foreach (KeyValuePair<int, int> kvp in marchCounts)
+        {
+            int face = kvp.Key;
+            int face1 = dictFaces[face][0];
+            int face2 = dictFaces[face][1];
+            int face3 = dictFaces[face][2];
+
+            float ratio1 = kvp.Value / (float)order;
+            float ratio2 = ratio1;
+            float ratio3 = ratio1;
+
+            colors[face1] = Color.Lerp(Color.red, Color.green, ratio1);
+            colors[face2] = Color.Lerp(Color.red, Color.green, ratio2);
+            colors[face3] = Color.Lerp(Color.red, Color.green, ratio3);
+        }
+
+        #endregion
+    }
+
+    void RecursiveMarch(Dictionary<int, List<int>> dictFaces, List<int> sortedFaces, List<int> marchList, int march, Dictionary<int, int> marchCounts, ref int order)
+    {
+        List<int> sortedAdjacents = new List<int>();
+
+        foreach (int adjacent in dictFaces[march])
+        {
+            sortedAdjacents.Add(adjacent);
+        }
+
+        //sort faces by X
+        sortedAdjacents.Sort(
+            delegate(int index1, int index2)
+            {
+                return sortedFaces.IndexOf(index1).CompareTo(sortedFaces.IndexOf(index2));
+            });
+
+        foreach (int adjacent in sortedAdjacents)
+        {
+            if (marchList.Contains(adjacent))
+            {
+                marchCounts[adjacent] = order;
+                ++order;
+            }
+        }
+
+        foreach (int adjacent in sortedAdjacents)
+        {
+            if (marchList.Contains(adjacent))
+            {
+                marchList.Remove(adjacent);
+                RecursiveMarch(dictFaces, sortedFaces, marchList, adjacent, marchCounts, ref order);
+            }
+        }
     }
 
     Vector3 GetPerpendicular(Vector3[] verts, int face1, int face2, int face3)
