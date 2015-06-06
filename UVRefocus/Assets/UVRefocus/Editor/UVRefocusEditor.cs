@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Mime;
 using System.Runtime.Remoting.Messaging;
 using System.Text;
@@ -29,6 +30,8 @@ public class UVRefocusEditor : EditorWindow
     private static Texture2D _sReferenceUVMap = null;
 
     private static Texture2D _sInstanceUVMap = null;
+
+    private static int _sStep = 1;
 
     /// <summary>
     /// Open an instance of the panel
@@ -223,6 +226,22 @@ public class UVRefocusEditor : EditorWindow
             {
                 Find(SearchLocations.RightFoot);
             }
+            GUILayout.EndHorizontal();
+
+            GUILayout.Label(string.Empty);
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("--"))
+            {
+                _sStep = Mathf.Max(1, _sStep - 1);
+                Find(SearchLocations.LeftHand);
+            }
+            if (GUILayout.Button("++"))
+            {
+                ++_sStep;
+                Find(SearchLocations.LeftHand);
+            }
+            _sStep = EditorGUILayout.IntField("Step", _sStep);
             GUILayout.EndHorizontal();
 
             GUILayout.Label(string.Empty);
@@ -1003,6 +1022,37 @@ public class UVRefocusEditor : EditorWindow
 
         #endregion
 
+        #region Find Adjacent Faces don't just rely on triangles[] to tell you they are adjacent
+
+        Dictionary<int, List<int>> adjacentList = new Dictionary<int, List<int>>();
+
+        for (int i = 0; i < triangles.Length; ++i)
+        {
+            int a1 = triangles[i];
+            int face1 = triangles[i - i%3];
+            int face2 = triangles[i - i%3 + 1];
+            int face3 = triangles[i - i % 3 + 2];
+            adjacentList[a1] = new List<int>();
+            adjacentList[a1].Add(face1);
+            adjacentList[a1].Add(face2);
+            adjacentList[a1].Add(face3);
+            for (int j = i + 1; j < triangles.Length; ++j)
+            {
+                int b1 = triangles[j];
+                if (Vector3.Distance(verts[a1], verts[b1]) < 0.1f)
+                {
+                    face1 = triangles[j - j % 3];
+                    face2 = triangles[j - j % 3 + 1];
+                    face3 = triangles[j - j % 3 + 2];
+                    adjacentList[a1].Add(face1);
+                    adjacentList[a1].Add(face2);
+                    adjacentList[a1].Add(face3);
+                }
+            }
+        }
+
+        #endregion
+
         #region Marching Algorithm
 
         for (int i = 0; i < colors.Length; ++i)
@@ -1021,18 +1071,19 @@ public class UVRefocusEditor : EditorWindow
 
         Dictionary<int, int> marchCounts = new Dictionary<int, int>();
         int order = 0;
-        while (marchList.Count > 0)
+        while (marchList.Count > 0 &&
+            order < _sStep)
         {
-            Debug.Log("SearchCount: " + searchableList.Count);
+            //Debug.Log("SearchCount: " + searchableList.Count);
             if (searchableList.Count > 0)
             {
-                RecursiveMarch(searchableList, dictFaces, sortedFaces, marchList, searchableList[0], marchCounts,
+                RecursiveMarch(searchableList, dictFaces, sortedFaces, adjacentList, marchList, searchableList[0], marchCounts,
                     ref order, 0);
             }
             else
             {
                 Debug.Log("Out of things to search for...");
-                RecursiveMarch(searchableList, dictFaces, sortedFaces, marchList, marchList[0], marchCounts,
+                RecursiveMarch(searchableList, dictFaces, sortedFaces, adjacentList, marchList, marchList[0], marchCounts,
                     ref order, 0);
             }
             if (searchableList.Count == 0)
@@ -1059,12 +1110,32 @@ public class UVRefocusEditor : EditorWindow
             colors[face3] = Color.Lerp(Color.red, Color.green, ratio3);
         }
 
+        #region Show step
+
+        if ((_sStep - _sStep%3 + 3) < triangles.Length)
+        {
+            int face = sortedFaces[_sStep];
+
+            foreach (int adjacent in adjacentList[face])
+            {
+                foreach (int adjacent2 in adjacentList[adjacent])
+                {
+                    colors[adjacent2] = Color.magenta;
+                }
+                colors[adjacent] = Color.blue;
+            }
+
+            colors[face] = Color.white;
+        }
+
+        #endregion
+
         #endregion
 
         #endregion
     }
 
-    void RecursiveMarch(List<int> searchableList, Dictionary<int, List<int>> dictFaces, List<int> sortedFaces, List<int> marchList, int march, Dictionary<int, int> marchCounts, ref int order, int depth)
+    void RecursiveMarch(List<int> searchableList, Dictionary<int, List<int>> dictFaces, List<int> sortedFaces, Dictionary<int, List<int>> adjacentList, List<int> marchList, int march, Dictionary<int, int> marchCounts, ref int order, int depth)
     {
         //Debug.Log("March: "+march);
         if (searchableList.Contains(march))
@@ -1080,6 +1151,7 @@ public class UVRefocusEditor : EditorWindow
         }
 
         foreach (int adjacent in dictFaces[march])
+        //foreach (int adjacent in adjacentList[march])
         {
             //Debug.Log("Adjacent: " + adjacent);
             if (marchList.Contains(adjacent) &&
