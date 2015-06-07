@@ -1145,9 +1145,9 @@ public class UVRefocusEditor : EditorWindow
             float ratio2 = ratio1;
             float ratio3 = ratio1;
 
-            colors[face1] = Color.Lerp(Color.red, Color.green, ratio1);
-            colors[face2] = Color.Lerp(Color.red, Color.green, ratio2);
-            colors[face3] = Color.Lerp(Color.red, Color.green, ratio3);
+            colors[face1] = GetColorRatio(ratio1);
+            colors[face2] = GetColorRatio(ratio2);
+            colors[face3] = GetColorRatio(ratio3);
         }
 
         #region Show step
@@ -1180,6 +1180,18 @@ public class UVRefocusEditor : EditorWindow
         #endregion
 
         #endregion
+    }
+
+    Color GetColorRatio(float ratio)
+    {
+        if (ratio < 0.5f)
+        {
+            return Color.Lerp(Color.red, Color.green, ratio*2);
+        }
+        else
+        {
+            return Color.Lerp(Color.green, Color.blue, (ratio - 0.5f)*2);
+        }
     }
 
     void RecursiveMarch(List<int> searchableList, Dictionary<int, List<int>> dictFaces,
