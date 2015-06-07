@@ -31,7 +31,7 @@ public class UVRefocusEditor : EditorWindow
 
     private static Texture2D _sInstanceUVMap = null;
 
-    private static int _sStep = 1;
+    private static int _sStep = -1;
 
     /// <summary>
     /// Open an instance of the panel
@@ -233,7 +233,7 @@ public class UVRefocusEditor : EditorWindow
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("--"))
             {
-                _sStep = Mathf.Max(1, _sStep - 1);
+                _sStep = Mathf.Max(-1, _sStep - 1);
                 Find(SearchLocations.LeftHand);
             }
             if (GUILayout.Button("++"))
@@ -840,6 +840,36 @@ public class UVRefocusEditor : EditorWindow
         dictFaces[face].Add(face3);
     }
 
+    void AddVertex(Dictionary<Vector3, List<int>> dictVerteces, Vector3[] verts, int face)
+    {
+        Vector3 v = verts[face];
+        if (!dictVerteces.ContainsKey(v))
+        {
+            dictVerteces[v] = new List<int>();
+        }
+        if (!dictVerteces[v].Contains(face))
+        {
+            dictVerteces[v].Add(face);
+        }
+    }
+
+    void AddVertex(Dictionary<Vector3, List<int>> dictVerteces, Vector3[] verts, int face1, int face2, int face3)
+    {
+        Vector3 v = verts[face1];
+        if (!dictVerteces.ContainsKey(v))
+        {
+            dictVerteces[v] = new List<int>();
+        }
+        if (!dictVerteces[v].Contains(face2))
+        {
+            dictVerteces[v].Add(face2);
+        }
+        if (!dictVerteces[v].Contains(face3))
+        {
+            dictVerteces[v].Add(face3);
+        }
+    }
+
     void FindRightFingers(Transform t, int[] triangles, Vector3[] verts, Color32[] colors)
     {
         Vector3 pos = t.position;
@@ -849,8 +879,9 @@ public class UVRefocusEditor : EditorWindow
 
         #region Build a dictionary for quick face look-up
 
-        // find all the shared faces
+        // find all the shared faces and verts
         Dictionary<int, List<int>> dictFaces = new Dictionary<int, List<int>>();
+        Dictionary<Vector3, List<int>> dictVerteces = new Dictionary<Vector3, List<int>>();
         for (int i = 0; i < triangles.Length; i += 3)
         {
             int face1 = triangles[i];
@@ -864,6 +895,10 @@ public class UVRefocusEditor : EditorWindow
                 AddFace(dictFaces, face1, face1, face2, face3);
                 AddFace(dictFaces, face2, face1, face2, face3);
                 AddFace(dictFaces, face3, face1, face2, face3);
+
+                AddVertex(dictVerteces, verts, face1, face2, face3);
+                AddVertex(dictVerteces, verts, face2, face1, face3);
+                AddVertex(dictVerteces, verts, face3, face1, face2);
             }
         }
 
@@ -1024,6 +1059,7 @@ public class UVRefocusEditor : EditorWindow
 
         #region Find Adjacent Faces don't just rely on triangles[] to tell you they are adjacent
 
+        /*
         Dictionary<int, List<int>> adjacentList = new Dictionary<int, List<int>>();
 
         for (int i = 0; i < triangles.Length; ++i)
@@ -1050,6 +1086,7 @@ public class UVRefocusEditor : EditorWindow
                 }
             }
         }
+        */
 
         #endregion
 
@@ -1072,18 +1109,21 @@ public class UVRefocusEditor : EditorWindow
         Dictionary<int, int> marchCounts = new Dictionary<int, int>();
         int order = 0;
         while (marchList.Count > 0 &&
-            order < _sStep)
+            (_sStep < 0 ||
+            order < _sStep))
         {
             //Debug.Log("SearchCount: " + searchableList.Count);
             if (searchableList.Count > 0)
             {
-                RecursiveMarch(searchableList, dictFaces, sortedFaces, adjacentList, marchList, searchableList[0], marchCounts,
+                RecursiveMarch(searchableList, dictFaces, sortedFaces, dictVerteces,
+                    verts, marchList, searchableList[0], marchCounts,
                     ref order, 0);
             }
             else
             {
                 Debug.Log("Out of things to search for...");
-                RecursiveMarch(searchableList, dictFaces, sortedFaces, adjacentList, marchList, marchList[0], marchCounts,
+                RecursiveMarch(searchableList, dictFaces, sortedFaces, dictVerteces, verts,
+                    marchList, marchList[0], marchCounts,
                     ref order, 0);
             }
             if (searchableList.Count == 0)
@@ -1112,20 +1152,27 @@ public class UVRefocusEditor : EditorWindow
 
         #region Show step
 
-        if ((_sStep - _sStep%3 + 3) < triangles.Length)
+        if (_sStep >= 0)
         {
-            int face = sortedFaces[_sStep];
-
-            foreach (int adjacent in adjacentList[face])
+            if ((_sStep - _sStep%3 + 3) < triangles.Length)
             {
-                foreach (int adjacent2 in adjacentList[adjacent])
-                {
-                    colors[adjacent2] = Color.magenta;
-                }
-                colors[adjacent] = Color.blue;
-            }
+                int face = sortedFaces[_sStep];
 
-            colors[face] = Color.white;
+                foreach (int adjacent in dictVerteces[verts[face]])
+                {
+                    foreach (int adjacent2 in dictVerteces[verts[adjacent]])
+                    {
+                        foreach (int adjacent3 in dictVerteces[verts[adjacent2]])
+                        {
+                            colors[adjacent3] = Color.cyan;
+                        }
+                        colors[adjacent2] = Color.magenta;
+                    }
+                    colors[adjacent] = Color.blue;
+                }
+
+                colors[face] = Color.white;
+            }
         }
 
         #endregion
@@ -1135,7 +1182,11 @@ public class UVRefocusEditor : EditorWindow
         #endregion
     }
 
-    void RecursiveMarch(List<int> searchableList, Dictionary<int, List<int>> dictFaces, List<int> sortedFaces, Dictionary<int, List<int>> adjacentList, List<int> marchList, int march, Dictionary<int, int> marchCounts, ref int order, int depth)
+    void RecursiveMarch(List<int> searchableList, Dictionary<int, List<int>> dictFaces,
+        List<int> sortedFaces, Dictionary<Vector3, List<int>> dictVerteces,
+        Vector3[] verts,
+        List<int> marchList,
+        int march, Dictionary<int, int> marchCounts, ref int order, int depth)
     {
         //Debug.Log("March: "+march);
         if (searchableList.Contains(march))
@@ -1150,7 +1201,9 @@ public class UVRefocusEditor : EditorWindow
             marchList.Remove(march);
         }
 
-        foreach (int adjacent in dictFaces[march])
+        Vector3 v = verts[march];
+
+        foreach (int adjacent in dictVerteces[v])
         //foreach (int adjacent in adjacentList[march])
         {
             //Debug.Log("Adjacent: " + adjacent);
