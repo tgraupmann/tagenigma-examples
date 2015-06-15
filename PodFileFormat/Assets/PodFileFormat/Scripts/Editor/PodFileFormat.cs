@@ -1,4 +1,6 @@
-﻿using System;
+﻿//#define ENABLE_VERBOSE_LOG
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -30,7 +32,7 @@ public class PodFileFormat : EditorWindow
     }
 
     private string _mPath = string.Empty;
-    private GameObject _mGameObject = null;
+    private GameObject _mPreviewObject = null;
     private Mesh _mMesh = null;
     private int _mFileSize = 0;
     private string _mPodVersion = string.Empty;
@@ -38,24 +40,47 @@ public class PodFileFormat : EditorWindow
     private PodDataTypes _mPodDataType = 0;
     private int _mFaceCount = 0;
     private static List<KeyValuePair<Vector3, Color32>> _sLines = new List<KeyValuePair<Vector3, Color32>>();
-    private bool _mRecompute = false;
+    private int _mParseIndexStride = 0;
+    private int _mParseIndexNodeName = 0;
+    private List<BlockTypes> _mIdentifiers = new List<BlockTypes>();
+
+    class MeshNode
+    {
+        public string _mName = string.Empty;
+        public int _mStride = 0;
+        public int _mVertexPosition = 0;
+        public int _mFacePosition = 0;
+    }
+
+    private List<MeshNode> _mMeshNodes = new List<MeshNode>();
+
+    private PodDataIdentifiers _mPodDataIdentifier = PodDataIdentifiers.NONE;
 
     void OnGUI()
     {
         if (EditorApplication.isCompiling)
         {
-            _mRecompute = true;
             GUILayout.Label("Compiling...");
             return;
         }
 
         GUILayout.Label("Lines: " + _sLines.Count);
 
-        GameObject go = (GameObject)EditorGUILayout.ObjectField("Preview Object", _mGameObject, typeof(GameObject), true);
-        if (go != _mGameObject)
+        GameObject go = (GameObject)EditorGUILayout.ObjectField("Preview Object", _mPreviewObject, typeof(GameObject), true);
+        if (go != _mPreviewObject)
         {
-            _mGameObject = go;
-            EditorPrefs.SetInt("PreviewObject", _mGameObject.GetInstanceID());
+            _mPreviewObject = go;
+            EditorPrefs.SetInt("PreviewObject", _mPreviewObject.GetInstanceID());
+        }
+
+        if (!string.IsNullOrEmpty(_mPath))
+        {
+            if (GUILayout.Button("Reload"))
+            {
+                Preview();
+                EditorGUIUtility.ExitGUI();
+                return;
+            }
         }
 
         if (Selection.activeObject)
@@ -64,21 +89,10 @@ public class PodFileFormat : EditorWindow
             if (!string.IsNullOrEmpty(path) &&
                 path.ToLower().EndsWith(".pod"))
             {
-                if (_mRecompute ||
-                    (_mPath != path))
+                if ((_mPath != path))
                 {
-                    _mRecompute = false;
                     _mPath = path;
-                    if (_mGameObject)
-                    {
-                        MeshFilter mf = _mGameObject.GetComponent<MeshFilter>();
-                        _mMesh = mf.sharedMesh;
-                        if (_mMesh)
-                        {
-                            _sLines.Clear();
-                            Preview();
-                        }
-                    }
+                    Preview();
                 }
             }
         }
@@ -87,6 +101,19 @@ public class PodFileFormat : EditorWindow
         {
             GUILayout.Label(_mPath);
             GUILayout.Label("File Size: " + _mFileSize);
+        }
+
+        foreach (MeshNode item in _mMeshNodes)
+        {
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Label("Name:");
+            GUILayout.Label(item._mName);
+
+            GUILayout.Label("Stride:");
+            GUILayout.Label(item._mStride.ToString());
+            
+            GUILayout.EndHorizontal();
         }
     }
 
@@ -142,26 +169,27 @@ public class PodFileFormat : EditorWindow
         }
 
         identifier = block[0] | (block[1] << 8);
+        _mIdentifiers.Add((BlockTypes)identifier);
         if (log)
         {
-            Debug.LogWarning("Identifier=" + (BlockTypes) identifier);
+            Debug.Log("Identifier=" + (BlockTypes)identifier);
         }
 
         if ((block[3] & 1) == 1)
         {
             blockEnd = false;
-            //Debug.LogWarning("Beginning of block");
+            //Debug.Log("Beginning of block");
         }
         else
         {
             blockEnd = true;
-            //Debug.LogWarning("End of block");
+            //Debug.Log("End of block");
         }
 
         length = block[4] | (block[5] << 8) | (block[6] << 16) | (block[7] << 24);
         if (log)
         {
-            Debug.LogWarning("Length=" + length);
+            Debug.Log("Length=" + length);
         }
     }
 
@@ -171,11 +199,10 @@ public class PodFileFormat : EditorWindow
         {
             if (buffer[i] == 0)
             {
-                Debug.Log("Null terminator length=" + (i-position+1));
                 byte[] version = new byte[i - position];
                 Array.Copy(buffer, position, version, 0, version.Length);
                 _mPodVersion = System.Text.ASCIIEncoding.ASCII.GetString(version);
-                Debug.LogWarning("Version=" + _mPodVersion);
+                Debug.Log("Version=" + _mPodVersion);
                 break;
             }
         }
@@ -183,6 +210,39 @@ public class PodFileFormat : EditorWindow
 
     void Preview()
     {
+        _mMeshNodes.Clear();
+        _mParseIndexStride = 0;
+        _mParseIndexNodeName = 0;
+        _mIdentifiers.Clear();
+
+        if (_mPreviewObject)
+        {
+            MeshFilter mf = _mPreviewObject.GetComponent<MeshFilter>();
+            if (mf)
+            {
+                _mMesh = mf.sharedMesh;
+                if (_mMesh)
+                {
+                    _sLines.Clear();
+                    _mMesh.triangles = new int[0];
+                    _mMesh.normals = new Vector3[0];
+                    _mMesh.vertices = new Vector3[0];
+                }
+                else
+                {
+                    return;
+                }
+            }
+            else
+            {
+                return;
+            }
+        }
+        else
+        {
+            return;
+        }
+
         if (!File.Exists(_mPath))
         {
             return;
@@ -335,6 +395,30 @@ public class PodFileFormat : EditorWindow
         BLOCK_IDENTIFIER_POD_DATA = 9003,
     }
 
+    private enum PodDataIdentifiers
+    {
+        NONE,
+        BLOCK_IDENTIFIER_MESH_BINORMAL_LIST = BlockTypes.BLOCK_IDENTIFIER_MESH_BINORMAL_LIST,
+        BLOCK_IDENTIFIER_MESH_BONE_INDEX_LIST = BlockTypes.BLOCK_IDENTIFIER_MESH_BONE_INDEX_LIST,
+        BLOCK_IDENTIFIER_MESH_BONE_WEIGHTS = BlockTypes.BLOCK_IDENTIFIER_MESH_BONE_WEIGHTS,
+        BLOCK_IDENTIFIER_MESH_NORMAL_LIST = BlockTypes.BLOCK_IDENTIFIER_MESH_NORMAL_LIST,
+        BLOCK_IDENTIFIER_MESH_TANGENT_LIST = BlockTypes.BLOCK_IDENTIFIER_MESH_TANGENT_LIST,
+        BLOCK_IDENTIFIER_MESH_VERTEX_COLOUR_LIST = BlockTypes.BLOCK_IDENTIFIER_MESH_VERTEX_COLOUR_LIST,
+        BLOCK_IDENTIFIER_MESH_VERTEX_INDEX_LIST = BlockTypes.BLOCK_IDENTIFIER_MESH_VERTEX_INDEX_LIST,
+        BLOCK_IDENTIFIER_MESH_VERTEX_LIST = BlockTypes.BLOCK_IDENTIFIER_MESH_VERTEX_LIST,
+    }
+
+    MeshNode GetMeshNode(int item)
+    {
+        for (int index = _mMeshNodes.Count; index <= item; ++index)
+        {
+            MeshNode meshNode = new MeshNode();
+            _mMeshNodes.Add(meshNode);
+        }
+
+        return _mMeshNodes[item];
+    }
+
     void ParseNextChunk(byte[] buffer, ref int position, byte[] block)
     {
         int identifier;
@@ -350,7 +434,16 @@ public class PodFileFormat : EditorWindow
         position += 8;
         ReadBlock(block, out identifier, out length, out blockEnd, false);
 
-        //Debug.LogWarning("Identifier=" + (BlockTypes) identifier + " position=" + position + " length=" + length);
+        //Debug.Log("Identifier=" + (BlockTypes) identifier + " position=" + position + " length=" + length);
+
+        foreach (PodDataIdentifiers podIdentifier in Enum.GetValues(typeof (PodDataIdentifiers)))
+        {
+            if (podIdentifier == (PodDataIdentifiers)(int)identifier)
+            {
+                _mPodDataIdentifier = (PodDataIdentifiers)(int)identifier;
+                break;
+            }
+        }
 
         switch ((BlockTypes) identifier)
         {
@@ -364,11 +457,29 @@ public class PodFileFormat : EditorWindow
             case BlockTypes.BLOCK_IDENTIFIER_POD_STRIDES:
                 if (length != 0)
                 {
-                    int data =
-                        buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
-                        (buffer[position + 3] << 24);
-                    Debug.LogError("BLOCK_IDENTIFIER_POD_STRIDES: data=" + data + " position=" + position + " length=" +
-                                   length);
+                    int stride =
+                            buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
+                            (buffer[position + 3] << 24);
+                    Debug.Log("BLOCK_IDENTIFIER_POD_STRIDES: data=" + stride + " position=" + position +
+                              " length=" + length);
+
+                    if (_mPodDataIdentifier == PodDataIdentifiers.BLOCK_IDENTIFIER_MESH_VERTEX_LIST)
+                    {
+                        MeshNode item = GetMeshNode(_mParseIndexStride);
+
+                        item._mStride = stride;
+                        ++_mParseIndexStride;
+
+                        /*
+                        Debug.Log("Previous Identifier-0=" + _mIdentifiers[_mIdentifiers.Count - 1]);
+                        Debug.Log("Previous Identifier-1=" + _mIdentifiers[_mIdentifiers.Count - 2]);
+                        Debug.Log("Previous Identifier-2=" + _mIdentifiers[_mIdentifiers.Count - 3]);
+                        Debug.Log("Previous Identifier-3=" + _mIdentifiers[_mIdentifiers.Count - 4]);
+                        Debug.Log("Previous Identifier-4=" + _mIdentifiers[_mIdentifiers.Count - 5]);
+                        Debug.Log("Previous Identifier-5=" + _mIdentifiers[_mIdentifiers.Count - 6]);
+                        Debug.Log("Previous Identifier-6=" + _mIdentifiers[_mIdentifiers.Count - 7]);
+                        */
+                    }
                 }
                 break;
 
@@ -378,8 +489,9 @@ public class PodFileFormat : EditorWindow
                     int data =
                             buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24);
+#if ENABLE_VERBOSE_LOG
                     Debug.Log("BLOCK_IDENTIFIER_SCENE_NUM_MESHES: data=" + data + " position=" + position + " length=" + length);
-                    //Debug.LogWarning("Length: " + length);
+#endif
                 }
                 break;
 
@@ -389,8 +501,9 @@ public class PodFileFormat : EditorWindow
                     int data =
                             buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24);
+#if ENABLE_VERBOSE_LOG
                     Debug.Log("BLOCK_IDENTIFIER_SCENE_NUM_MESH_NODES: data=" + data + " position=" + position + " length=" + length);
-                    //Debug.LogWarning("Length: " + length);
+#endif
                 }
                 break;
 
@@ -400,22 +513,25 @@ public class PodFileFormat : EditorWindow
                     _mVertexCount =
                             buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24);
+#if ENABLE_VERBOSE_LOG
                     Debug.Log("BLOCK_IDENTIFIER_MESH_NUM_VERTICES: " + _mVertexCount + " position=" + position + " length=" + length);
-                    //Debug.LogWarning("Length: " + length);
+#endif
                 }
                 break;
 
             case BlockTypes.BLOCK_IDENTIFIER_MESH_VERTEX_LIST:
+
                 if (length != 0)
                 {
                     PodDataTypes podDataType =
                         (PodDataTypes)
                             (buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24));
-                    Debug.LogWarning("BLOCK_IDENTIFIER_MESH_VERTEX_LIST: " + podDataType + " position=" + position + " length=" + length);
-                    //Debug.LogWarning("Length: " + length);
+#if ENABLE_VERBOSE_LOG
+                    Debug.Log("BLOCK_IDENTIFIER_MESH_VERTEX_LIST: " + podDataType + " position=" + position + " length=" + length);
+#endif
                     /*
-                    Debug.LogWarning("Vertex Data Type: " + _mVertexDataType);
+                    Debug.Log("Vertex Data Type: " + _mVertexDataType);
                     for (int i = position; i < (position+4); ++i)
                     {
                         Debug.Log("byte " + i + ": " + buffer[i] + " Binary=" + BinaryToString(buffer[i]));
@@ -431,7 +547,9 @@ public class PodFileFormat : EditorWindow
                         (PodDataTypes)
                             (buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24));
-                    Debug.LogWarning("BLOCK_IDENTIFIER_POD_DATA_TYPE: " + _mPodDataType + " position=" + position + " length=" + length);
+#if ENABLE_VERBOSE_LOG
+                    Debug.Log("BLOCK_IDENTIFIER_POD_DATA_TYPE: " + _mPodDataType + " position=" + position + " length=" + length);
+#endif
                 }
                 break;
             case BlockTypes.BLOCK_IDENTIFIER_POD_NUM_COMPONENTS:
@@ -440,7 +558,9 @@ public class PodFileFormat : EditorWindow
                     int data =
                         (buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                          (buffer[position + 3] << 24));
+#if ENABLE_VERBOSE_LOG
                     Debug.Log("BLOCK_IDENTIFIER_POD_NUM_COMPONENTS: " + data + " position=" + position + " length=" + length);
+#endif
                 }
                 break;
             case BlockTypes.BLOCK_IDENTIFIER_POD_DATA:
@@ -449,7 +569,9 @@ public class PodFileFormat : EditorWindow
                     switch (_mPodDataType)
                     {
                         case PodDataTypes.UNSIGNED_SHORT:
+#if ENABLE_VERBOSE_LOG
                             Debug.Log("BLOCK_IDENTIFIER_POD_DATA: " + _mVertexCount + " dataType=" + _mPodDataType + " position=" + position + " length=" + length);
+#endif
                             if ((position + _mFaceCount*6) < buffer.Length)
                             {
                                 int temp = position;
@@ -474,7 +596,7 @@ public class PodFileFormat : EditorWindow
                                     triangles[i*3+2] = f3;
                                 }
                                 _mMesh.triangles = triangles;
-                                Debug.LogError("Assigned Faces: " + _mFaceCount);
+                                Debug.Log("Assigned Faces: " + _mFaceCount);
                             }
                             else
                             {
@@ -484,8 +606,10 @@ public class PodFileFormat : EditorWindow
                         case PodDataTypes.SIGNED_FLOAT_32:
                             int data = (buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24));
+#if ENABLE_VERBOSE_LOG
                             Debug.Log("BLOCK_IDENTIFIER_POD_DATA: " + _mVertexCount + " dataType=" + _mPodDataType +
                                       " data" + data + " position=" + position + " length=" + length);
+#endif
                             /*
                             if ((position + _mVertexCount * 12) < buffer.Length)
                             {
@@ -635,7 +759,7 @@ public class PodFileFormat : EditorWindow
 
                     if (inRange)
                     {
-                        Debug.LogError("Assigned verts: " + verts.Length + " inRange=" + inRange);
+                        Debug.Log("Assigned verts: " + verts.Length + " inRange=" + inRange);
                         _mMesh.vertices = verts;
                         _mMesh.normals = normals;
                         _mMesh.RecalculateBounds();
@@ -655,8 +779,9 @@ public class PodFileFormat : EditorWindow
                     _mFaceCount =
                             buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24);
+#if ENABLE_VERBOSE_LOG
                     Debug.Log("BLOCK_IDENTIFIER_MESH_NUM_FACES: " + _mFaceCount + " position=" + position + " length=" + length);
-                    //Debug.LogWarning("Length: " + length);
+#endif
                 }
                 break;
             case BlockTypes.BLOCK_IDENTIFIER_MESH_VERTEX_INDEX_LIST:
@@ -666,14 +791,71 @@ public class PodFileFormat : EditorWindow
                         (PodDataTypes)
                             (buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24));
-                    Debug.LogWarning("BLOCK_IDENTIFIER_MESH_VERTEX_INDEX_LIST: " + podDataTypes + " position="+position+" length=" + length);
-                    //Debug.LogWarning("Length: " + length);
+#if ENABLE_VERBOSE_LOG
+                    Debug.Log("BLOCK_IDENTIFIER_MESH_VERTEX_INDEX_LIST: " + podDataTypes + " position="+position+" length=" + length);
+#endif
                     /*
                     for (int i = position; i < (position+4); ++i)
                     {
                         Debug.Log("byte " + i + ": " + buffer[i] + " Binary=" + BinaryToString(buffer[i]));
                     }
                     */
+                }
+                break;
+
+            case BlockTypes.BLOCK_IDENTIFIER_MATERIAL_NAME:
+                if (length != 0)
+                {
+//#if ENABLE_VERBOSE_LOG
+                    Debug.LogWarning("BLOCK_IDENTIFIER_MATERIAL_NAME: position=" + position + " length=" + length);
+//#endif
+                }
+                break;
+
+            case BlockTypes.BLOCK_IDENTIFIER_MATERIAL_EFFECT_FILE_NAME:
+                if (length != 0)
+                {
+#if ENABLE_VERBOSE_LOG
+                    byte[] strData = new byte[length];
+                    Array.Copy(buffer, position, strData, 0, length);
+                    string strName = System.Text.UTF8Encoding.UTF8.GetString(strData);
+                    Debug.Log("BLOCK_IDENTIFIER_MATERIAL_EFFECT_FILE_NAME: name=" + strName + "position=" + position + " length=" + length);
+                    
+#endif
+                }
+                break;
+
+            case BlockTypes.BLOCK_IDENTIFIER_MATERIAL_EFFECT_NAME:
+                if (length != 0)
+                {
+                    //#if ENABLE_VERBOSE_LOG
+                    Debug.LogWarning("BLOCK_IDENTIFIER_MATERIAL_EFFECT_NAME: position=" + position + " length=" + length);
+                    //#endif
+                }
+                break;
+
+            case BlockTypes.BLOCK_IDENTIFIER_TEXTURE_NAME:
+                if (length != 0)
+                {
+                    //#if ENABLE_VERBOSE_LOG
+                    Debug.LogWarning("BLOCK_IDENTIFIER_TEXTURE_NAME: position=" + position + " length=" + length);
+                    //#endif
+                }
+                break;
+
+            case BlockTypes.BLOCK_IDENTIFIER_NODE_NAME:
+                if (length != 0)
+                {
+                    MeshNode item = GetMeshNode(_mParseIndexNodeName);
+
+                    //#if ENABLE_VERBOSE_LOG
+                    byte[] strData = new byte[length];
+                    Array.Copy(buffer, position, strData, 0, length);
+                    item._mName = System.Text.UTF8Encoding.UTF8.GetString(strData);
+                    Debug.Log("BLOCK_IDENTIFIER_NODE_NAME: name=" + item._mName + "position=" + position + " length=" + length);
+                    //#endif
+
+                    ++_mParseIndexNodeName;
                 }
                 break;
         }
