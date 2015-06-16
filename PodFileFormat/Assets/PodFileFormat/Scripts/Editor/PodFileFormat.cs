@@ -38,6 +38,10 @@ public class PodFileFormat : EditorWindow
     private string _mPodVersion = string.Empty;
     private PodDataTypes _mPodDataType = 0;
     private static List<KeyValuePair<Vector3, Color32>> _sLines = new List<KeyValuePair<Vector3, Color32>>();
+    private int _mParseIndexFace = 0;
+    private int _mParseIndexFaceCount = 0;
+    private int _mParseIndexVertex = 0;
+    private int _mParseIndexVertexCount = 0;
     private int _mParseIndexStride = 0;
     private int _mParseIndexNodeName = 0;
     private List<BlockTypes> _mIdentifiers = new List<BlockTypes>();
@@ -228,6 +232,10 @@ public class PodFileFormat : EditorWindow
     void Preview()
     {
         _mMeshNodes.Clear();
+        _mParseIndexFace = 0;
+        _mParseIndexFaceCount = 0;
+        _mParseIndexVertex = 0;
+        _mParseIndexVertexCount = 0;
         _mParseIndexStride = 0;
         _mParseIndexNodeName = 0;
         _mIdentifiers.Clear();
@@ -499,6 +507,7 @@ public class PodFileFormat : EditorWindow
 
                         ReadVerteces(buffer, item);
                         ReadFaces(buffer, item);
+                        _mMesh.RecalculateBounds();
                     }
                 }
                 break;
@@ -530,13 +539,14 @@ public class PodFileFormat : EditorWindow
             case BlockTypes.BLOCK_IDENTIFIER_MESH_NUM_VERTICES:
                 if (length != 0)
                 {
-                    MeshNode item = GetMeshNode(0);
+                    MeshNode item = GetMeshNode(_mParseIndexVertexCount);
                     item._mVertexCount =
                             buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24);
 #if ENABLE_VERBOSE_LOG
                     Debug.Log("BLOCK_IDENTIFIER_MESH_NUM_VERTICES: " + _mVertexCount + " position=" + position + " length=" + length);
 #endif
+                    ++_mParseIndexVertexCount;
                 }
                 break;
 
@@ -593,9 +603,10 @@ public class PodFileFormat : EditorWindow
 #if ENABLE_VERBOSE_LOG
                             Debug.Log("BLOCK_IDENTIFIER_POD_DATA: " + _mVertexCount + " dataType=" + _mPodDataType + " position=" + position + " length=" + length);
 #endif
-                            MeshNode item = GetMeshNode(0);
+                            MeshNode item = GetMeshNode(_mParseIndexFace);
                             item._mFacePosition = position;
                             item._mFaceLength = length;
+                            ++_mParseIndexFace;
                             break;
                         case PodDataTypes.SIGNED_FLOAT_32:
                             int data = (buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
@@ -642,12 +653,14 @@ public class PodFileFormat : EditorWindow
 
                 if (length != 0)
                 {
-                    MeshNode item = GetMeshNode(0);
+                    MeshNode item = GetMeshNode(_mParseIndexVertex);
                     item._mVertexPosition = position;
                     item._mVertexLength = length;
 
                     Debug.Log("BLOCK_IDENTIFIER_MESH_INTERLEAVED_DATA_LIST: " + item._mVertexCount + " dataType=" + _mPodDataType +
                           " position=" + position + " length=" + length);
+
+                    ++_mParseIndexVertex;
                 }
 
                 break;
@@ -655,7 +668,7 @@ public class PodFileFormat : EditorWindow
             case BlockTypes.BLOCK_IDENTIFIER_MESH_NUM_FACES:
                 if (length != 0)
                 {
-                    MeshNode item = GetMeshNode(0);
+                    MeshNode item = GetMeshNode(_mParseIndexFaceCount);
 
                     item._mFaceCount =
                             buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
@@ -663,6 +676,7 @@ public class PodFileFormat : EditorWindow
 #if ENABLE_VERBOSE_LOG
                     Debug.Log("BLOCK_IDENTIFIER_MESH_NUM_FACES: " + item._mFaceCount + " position=" + position + " length=" + length);
 #endif
+                    ++_mParseIndexFaceCount;
                 }
                 break;
             case BlockTypes.BLOCK_IDENTIFIER_MESH_VERTEX_INDEX_LIST:
@@ -883,7 +897,6 @@ public class PodFileFormat : EditorWindow
             Debug.Log("Assigned verts: " + verts.Length + " inRange=" + inRange);
             _mMesh.vertices = verts;
             _mMesh.normals = normals;
-            _mMesh.RecalculateBounds();
         }
     }
 
