@@ -104,6 +104,8 @@ public class PodFileFormat : EditorWindow
                 {
                     _mPath = path;
                     Preview();
+                    EditorGUIUtility.ExitGUI();
+                    return;
                 }
             }
         }
@@ -275,7 +277,15 @@ public class PodFileFormat : EditorWindow
         int position = 0;
         byte[] block = new byte[8];
 
-        ParseNextChunk(buffer, ref position, block);
+        while (position < buffer.Length)
+        {
+            int oldPosition = position;
+            ParseNextChunk(buffer, ref position, block);
+            if (oldPosition == position)
+            {
+                break; // no movement, exit
+            }
+        }
 
         CombineInstance[] combine = new CombineInstance[_mCombineMeshes.Count];
         int i = 0;
@@ -780,8 +790,6 @@ public class PodFileFormat : EditorWindow
         }
 
         position += length;
-
-        ParseNextChunk(buffer, ref position, block);
     }
 
     void ReadVerteces(byte[] buffer, MeshNode item)
