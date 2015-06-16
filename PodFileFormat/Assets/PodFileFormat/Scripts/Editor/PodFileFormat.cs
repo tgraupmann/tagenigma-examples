@@ -36,9 +36,7 @@ public class PodFileFormat : EditorWindow
     private Mesh _mMesh = null;
     private int _mFileSize = 0;
     private string _mPodVersion = string.Empty;
-    private int _mVertexCount = 0;
     private PodDataTypes _mPodDataType = 0;
-    private int _mFaceCount = 0;
     private static List<KeyValuePair<Vector3, Color32>> _sLines = new List<KeyValuePair<Vector3, Color32>>();
     private int _mParseIndexStride = 0;
     private int _mParseIndexNodeName = 0;
@@ -48,8 +46,15 @@ public class PodFileFormat : EditorWindow
     {
         public string _mName = string.Empty;
         public int _mStride = 0;
+
+        public int _mVertexCount = 0;
+
         public int _mVertexPosition = 0;
+        public int _mVertexLength = 0;
+
+        public int _mFaceCount = 0;
         public int _mFacePosition = 0;
+        public int _mFaceLength = 0;
     }
 
     private List<MeshNode> _mMeshNodes = new List<MeshNode>();
@@ -112,6 +117,18 @@ public class PodFileFormat : EditorWindow
 
             GUILayout.Label("Stride:");
             GUILayout.Label(item._mStride.ToString());
+
+            GUILayout.Label("VPos:");
+            GUILayout.Label(item._mVertexPosition.ToString());
+
+            GUILayout.Label("VCount:");
+            GUILayout.Label(item._mVertexCount.ToString());
+
+            GUILayout.Label("FPos:");
+            GUILayout.Label(item._mFacePosition.ToString());
+
+            GUILayout.Label("FCount:");
+            GUILayout.Label(item._mFaceCount.ToString());
             
             GUILayout.EndHorizontal();
         }
@@ -479,6 +496,9 @@ public class PodFileFormat : EditorWindow
                         Debug.Log("Previous Identifier-5=" + _mIdentifiers[_mIdentifiers.Count - 6]);
                         Debug.Log("Previous Identifier-6=" + _mIdentifiers[_mIdentifiers.Count - 7]);
                         */
+
+                        ReadVerteces(buffer, item);
+                        ReadFaces(buffer, item);
                     }
                 }
                 break;
@@ -510,7 +530,8 @@ public class PodFileFormat : EditorWindow
             case BlockTypes.BLOCK_IDENTIFIER_MESH_NUM_VERTICES:
                 if (length != 0)
                 {
-                    _mVertexCount =
+                    MeshNode item = GetMeshNode(0);
+                    item._mVertexCount =
                             buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24);
 #if ENABLE_VERBOSE_LOG
@@ -572,36 +593,9 @@ public class PodFileFormat : EditorWindow
 #if ENABLE_VERBOSE_LOG
                             Debug.Log("BLOCK_IDENTIFIER_POD_DATA: " + _mVertexCount + " dataType=" + _mPodDataType + " position=" + position + " length=" + length);
 #endif
-                            if ((position + _mFaceCount*6) < buffer.Length)
-                            {
-                                int temp = position;
-                                int[] triangles = new int[_mFaceCount*3];
-                                byte[] face = new byte[2];
-                                for (int i = 0; i < _mFaceCount; ++i)
-                                {
-                                    Array.Copy(buffer, temp, face, 0, 2);
-                                    ushort f1 = BitConverter.ToUInt16(face, 0);
-                                    temp += 2;
-
-                                    Array.Copy(buffer, temp, face, 0, 2);
-                                    ushort f2 = BitConverter.ToUInt16(face, 0);
-                                    temp += 2;
-
-                                    Array.Copy(buffer, temp, face, 0, 2);
-                                    ushort f3 = BitConverter.ToUInt16(face, 0);
-                                    temp += 2;
-
-                                    triangles[i*3] = f1;
-                                    triangles[i*3+1] = f2;
-                                    triangles[i*3+2] = f3;
-                                }
-                                _mMesh.triangles = triangles;
-                                Debug.Log("Assigned Faces: " + _mFaceCount);
-                            }
-                            else
-                            {
-                                Debug.LogError("Unexpected faces size!");
-                            }
+                            MeshNode item = GetMeshNode(0);
+                            item._mFacePosition = position;
+                            item._mFaceLength = length;
                             break;
                         case PodDataTypes.SIGNED_FLOAT_32:
                             int data = (buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
@@ -646,129 +640,14 @@ public class PodFileFormat : EditorWindow
 
             case BlockTypes.BLOCK_IDENTIFIER_MESH_INTERLEAVED_DATA_LIST:
 
-                Debug.Log("BLOCK_IDENTIFIER_MESH_INTERLEAVED_DATA_LIST: " + _mVertexCount + " dataType=" + _mPodDataType +
-                                      " position=" + position + " length=" + length);
-                if ((position + length) < buffer.Length)
+                if (length != 0)
                 {
-                    byte[] data = new byte[4];
+                    MeshNode item = GetMeshNode(0);
+                    item._mVertexPosition = position;
+                    item._mVertexLength = length;
 
-                    bool inRange = true;
-                    Vector3[] verts = new Vector3[_mVertexCount];
-                    Vector3[] normals = new Vector3[_mVertexCount];
-                    int temp = position;
-                    for (int i = 0; i < _mVertexCount; ++i)
-                    {
-                        #region Verts
-
-                        float x = 0;
-                        if ((temp+4) < buffer.Length)
-                        {
-                            Array.Copy(buffer, temp, data, 0, 4);
-                            x = BitConverter.ToSingle(data, 0);
-                            temp += 4;
-                        }
-                        else
-                        {
-                            Debug.Log("Temp is out of X range temp="+temp+" length="+buffer.Length);
-                            inRange = false;
-                            break;
-                        }
-
-                        float y = 0;
-                        if ((temp + 4) < buffer.Length)
-                        {
-                            Array.Copy(buffer, temp, data, 0, 4);
-                            y = BitConverter.ToSingle(data, 0);
-                            temp += 4;
-                        }
-                        else
-                        {
-                            Debug.Log("Temp is out of Y range temp=" + temp + " length=" + buffer.Length);
-                            inRange = false;
-                            break;
-                        }
-
-                        float z = 0;
-                        if ((temp + 4) < buffer.Length)
-                        {
-                            Array.Copy(buffer, temp, data, 0, 4);
-                            z = BitConverter.ToSingle(data, 0);
-                            temp += 4;
-                        }
-                        else
-                        {
-                            Debug.Log("Temp is out of Z range temp=" + temp + " length=" + buffer.Length);
-                            inRange = false;
-                            break;
-                        }
-
-                        verts[i] = new Vector3(-x, y, -z);
-
-                        #endregion
-
-                        //_sLines.Add(new KeyValuePair<Vector3, Color32>(verts[i], Color.cyan));
-                        //_sLines.Add(new KeyValuePair<Vector3, Color32>(verts[i] + Vector3.up*.1f, Color.cyan));
-
-                        #region Normals
-
-                        if ((temp + 4) < buffer.Length)
-                        {
-                            Array.Copy(buffer, temp, data, 0, 4);
-                            x = BitConverter.ToSingle(data, 0);
-                            temp += 4;
-                        }
-                        else
-                        {
-                            Debug.Log("Temp is out of X range temp=" + temp + " length=" + buffer.Length);
-                            inRange = false;
-                            break;
-                        }
-
-                        if ((temp + 4) < buffer.Length)
-                        {
-                            Array.Copy(buffer, temp, data, 0, 4);
-                            y = BitConverter.ToSingle(data, 0);
-                            temp += 4;
-                        }
-                        else
-                        {
-                            Debug.Log("Temp is out of Y range temp=" + temp + " length=" + buffer.Length);
-                            inRange = false;
-                            break;
-                        }
-
-                        if ((temp + 4) < buffer.Length)
-                        {
-                            Array.Copy(buffer, temp, data, 0, 4);
-                            z = BitConverter.ToSingle(data, 0);
-                            temp += 4;
-                        }
-                        else
-                        {
-                            Debug.Log("Temp is out of Z range temp=" + temp + " length=" + buffer.Length);
-                            inRange = false;
-                            break;
-                        }
-
-                        normals[i] = new Vector3(-x, y, -z);
-
-                        #endregion
-
-                        //temp += 12;
-                    }
-
-                    if (inRange)
-                    {
-                        Debug.Log("Assigned verts: " + verts.Length + " inRange=" + inRange);
-                        _mMesh.vertices = verts;
-                        _mMesh.normals = normals;
-                        _mMesh.RecalculateBounds();
-                    }
-                }
-                else
-                {
-                    Debug.LogError("Unexpected verts size! " + (position + _mVertexCount*12) + " at " +
-                                    position);
+                    Debug.Log("BLOCK_IDENTIFIER_MESH_INTERLEAVED_DATA_LIST: " + item._mVertexCount + " dataType=" + _mPodDataType +
+                          " position=" + position + " length=" + length);
                 }
 
                 break;
@@ -776,11 +655,13 @@ public class PodFileFormat : EditorWindow
             case BlockTypes.BLOCK_IDENTIFIER_MESH_NUM_FACES:
                 if (length != 0)
                 {
-                    _mFaceCount =
+                    MeshNode item = GetMeshNode(0);
+
+                    item._mFaceCount =
                             buffer[position] | (buffer[position + 1] << 8) | (buffer[position + 2] << 16) |
                              (buffer[position + 3] << 24);
 #if ENABLE_VERBOSE_LOG
-                    Debug.Log("BLOCK_IDENTIFIER_MESH_NUM_FACES: " + _mFaceCount + " position=" + position + " length=" + length);
+                    Debug.Log("BLOCK_IDENTIFIER_MESH_NUM_FACES: " + item._mFaceCount + " position=" + position + " length=" + length);
 #endif
                 }
                 break;
@@ -879,5 +760,170 @@ public class PodFileFormat : EditorWindow
         position += length;
 
         ParseNextChunk(buffer, ref position, block);
+    }
+
+    void ReadVerteces(byte[] buffer, MeshNode item)
+    {
+        if (item._mVertexLength == 0 ||
+            item._mStride == 0 ||
+            item._mVertexPosition == 0)
+        {
+            return;
+        }
+
+        byte[] data = new byte[4];
+
+        bool inRange = true;
+        Vector3[] verts = new Vector3[item._mVertexCount];
+        Vector3[] normals = new Vector3[item._mVertexCount];
+        int temp = item._mVertexPosition;
+        for (int i = 0; i < item._mVertexCount; ++i)
+        {
+            #region Verts
+
+            float x = 0;
+            if ((temp + 4) < buffer.Length)
+            {
+                Array.Copy(buffer, temp, data, 0, 4);
+                x = BitConverter.ToSingle(data, 0);
+                temp += 4;
+            }
+            else
+            {
+                Debug.Log("Temp is out of X range temp=" + temp + " length=" + buffer.Length);
+                inRange = false;
+                break;
+            }
+
+            float y = 0;
+            if ((temp + 4) < buffer.Length)
+            {
+                Array.Copy(buffer, temp, data, 0, 4);
+                y = BitConverter.ToSingle(data, 0);
+                temp += 4;
+            }
+            else
+            {
+                Debug.Log("Temp is out of Y range temp=" + temp + " length=" + buffer.Length);
+                inRange = false;
+                break;
+            }
+
+            float z = 0;
+            if ((temp + 4) < buffer.Length)
+            {
+                Array.Copy(buffer, temp, data, 0, 4);
+                z = BitConverter.ToSingle(data, 0);
+                temp += 4;
+            }
+            else
+            {
+                Debug.Log("Temp is out of Z range temp=" + temp + " length=" + buffer.Length);
+                inRange = false;
+                break;
+            }
+
+            verts[i] = new Vector3(-x, y, -z);
+
+            #endregion
+
+            //_sLines.Add(new KeyValuePair<Vector3, Color32>(verts[i], Color.cyan));
+            //_sLines.Add(new KeyValuePair<Vector3, Color32>(verts[i] + Vector3.up*.1f, Color.cyan));
+
+            #region Normals
+
+            if ((temp + 4) < buffer.Length)
+            {
+                Array.Copy(buffer, temp, data, 0, 4);
+                x = BitConverter.ToSingle(data, 0);
+                temp += 4;
+            }
+            else
+            {
+                Debug.Log("Temp is out of X range temp=" + temp + " length=" + buffer.Length);
+                inRange = false;
+                break;
+            }
+
+            if ((temp + 4) < buffer.Length)
+            {
+                Array.Copy(buffer, temp, data, 0, 4);
+                y = BitConverter.ToSingle(data, 0);
+                temp += 4;
+            }
+            else
+            {
+                Debug.Log("Temp is out of Y range temp=" + temp + " length=" + buffer.Length);
+                inRange = false;
+                break;
+            }
+
+            if ((temp + 4) < buffer.Length)
+            {
+                Array.Copy(buffer, temp, data, 0, 4);
+                z = BitConverter.ToSingle(data, 0);
+                temp += 4;
+            }
+            else
+            {
+                Debug.Log("Temp is out of Z range temp=" + temp + " length=" + buffer.Length);
+                inRange = false;
+                break;
+            }
+
+            normals[i] = new Vector3(-x, y, -z);
+
+            #endregion
+
+            //temp += 12;
+        }
+
+        if (inRange)
+        {
+            Debug.Log("Assigned verts: " + verts.Length + " inRange=" + inRange);
+            _mMesh.vertices = verts;
+            _mMesh.normals = normals;
+            _mMesh.RecalculateBounds();
+        }
+    }
+
+    void ReadFaces(byte[] buffer, MeshNode item)
+    {
+        if (item._mFacePosition == 0)
+        {
+            Debug.LogError("Face position is zero!");
+            return;
+        }
+
+        if ((item._mFacePosition + item._mFaceCount * 6) < buffer.Length)
+        {
+            int temp = item._mFacePosition;
+            int[] triangles = new int[item._mFaceCount * 3];
+            byte[] face = new byte[2];
+            for (int i = 0; i < item._mFaceCount; ++i)
+            {
+                Array.Copy(buffer, temp, face, 0, 2);
+                ushort f1 = BitConverter.ToUInt16(face, 0);
+                temp += 2;
+
+                Array.Copy(buffer, temp, face, 0, 2);
+                ushort f2 = BitConverter.ToUInt16(face, 0);
+                temp += 2;
+
+                Array.Copy(buffer, temp, face, 0, 2);
+                ushort f3 = BitConverter.ToUInt16(face, 0);
+                temp += 2;
+
+                triangles[i * 3] = f1;
+                triangles[i * 3 + 1] = f2;
+                triangles[i * 3 + 2] = f3;
+            }
+            Debug.Log("Assign Faces: " + item._mFaceCount);
+            _mMesh.triangles = triangles;
+        }
+        else
+        {
+            Debug.LogError("Unexpected faces size!");
+        }
     }
 }
