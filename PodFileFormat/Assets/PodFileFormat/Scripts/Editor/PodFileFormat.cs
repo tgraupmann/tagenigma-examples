@@ -34,6 +34,7 @@ public class PodFileFormat : EditorWindow
     private string _mPath = string.Empty;
     private GameObject _mPreviewObject = null;
     private Mesh _mMesh = null;
+    private Mesh _mTempMesh = null;
     private int _mFileSize = 0;
     private string _mPodVersion = string.Empty;
     private PodDataTypes _mPodDataType = 0;
@@ -45,6 +46,7 @@ public class PodFileFormat : EditorWindow
     private int _mParseIndexStride = 0;
     private int _mParseIndexNodeName = 0;
     private List<BlockTypes> _mIdentifiers = new List<BlockTypes>();
+    private List<Mesh> _mCombineMeshes = new List<Mesh>(); 
 
     class MeshNode
     {
@@ -231,6 +233,7 @@ public class PodFileFormat : EditorWindow
 
     void Preview()
     {
+        _mCombineMeshes.Clear();
         _mMeshNodes.Clear();
         _mParseIndexFace = 0;
         _mParseIndexFaceCount = 0;
@@ -240,25 +243,11 @@ public class PodFileFormat : EditorWindow
         _mParseIndexNodeName = 0;
         _mIdentifiers.Clear();
 
+        MeshFilter mf = null;
         if (_mPreviewObject)
         {
-            MeshFilter mf = _mPreviewObject.GetComponent<MeshFilter>();
-            if (mf)
-            {
-                _mMesh = mf.sharedMesh;
-                if (_mMesh)
-                {
-                    _sLines.Clear();
-                    _mMesh.triangles = new int[0];
-                    _mMesh.normals = new Vector3[0];
-                    _mMesh.vertices = new Vector3[0];
-                }
-                else
-                {
-                    return;
-                }
-            }
-            else
+            mf = _mPreviewObject.GetComponent<MeshFilter>();
+            if (mf == null)
             {
                 return;
             }
@@ -287,6 +276,26 @@ public class PodFileFormat : EditorWindow
         byte[] block = new byte[8];
 
         ParseNextChunk(buffer, ref position, block);
+
+        CombineInstance[] combine = new CombineInstance[_mCombineMeshes.Count];
+        int i = 0;
+        while (i < _mCombineMeshes.Count)
+        {
+            Mesh mesh = _mCombineMeshes[i];
+            Matrix4x4 m = Matrix4x4.TRS(Vector3.up * i * 1, Quaternion.identity, Vector3.one);
+            Vector3[] verts = mesh.vertices;
+            for (int v = 0; v < verts.Length; ++v)
+            {
+                verts[v] = m.MultiplyPoint3x4(verts[v]);
+            }
+            mesh.vertices = verts;
+            combine[i].mesh = mesh;
+            combine[i].transform = _mPreviewObject.transform.localToWorldMatrix;
+            ++i;
+        }
+        _mMesh = mf.sharedMesh;
+        _mMesh.CombineMeshes(combine);
+        _mMesh.RecalculateBounds();
     }
 
     enum PodDataTypes
@@ -507,7 +516,6 @@ public class PodFileFormat : EditorWindow
 
                         ReadVerteces(buffer, item);
                         ReadFaces(buffer, item);
-                        _mMesh.RecalculateBounds();
                     }
                 }
                 break;
@@ -895,8 +903,10 @@ public class PodFileFormat : EditorWindow
         if (inRange)
         {
             Debug.Log("Assigned verts: " + verts.Length + " inRange=" + inRange);
-            _mMesh.vertices = verts;
-            _mMesh.normals = normals;
+            _mTempMesh = new Mesh();
+            _mTempMesh.vertices = verts;
+            _mTempMesh.normals = normals;
+            _mCombineMeshes.Add(_mTempMesh);
         }
     }
 
@@ -932,7 +942,7 @@ public class PodFileFormat : EditorWindow
                 triangles[i * 3 + 2] = f3;
             }
             Debug.Log("Assign Faces: " + item._mFaceCount);
-            _mMesh.triangles = triangles;
+            _mTempMesh.triangles = triangles;
         }
         else
         {
