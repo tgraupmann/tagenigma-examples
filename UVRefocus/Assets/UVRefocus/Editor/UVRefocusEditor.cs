@@ -33,6 +33,8 @@ public class UVRefocusEditor : EditorWindow
 
     private static int _sStep = -1;
 
+    private bool _mShowFingerTips = false;
+
     /// <summary>
     /// Open an instance of the panel
     /// </summary>
@@ -137,6 +139,8 @@ public class UVRefocusEditor : EditorWindow
                     EditorPrefs.SetInt(string.Format("Mesh{0}", index), _mMeshObjects[index].GetInstanceID());
                 }
             }
+
+            _mShowFingerTips = EditorGUILayout.Toggle("ShowFingerTips", _mShowFingerTips);
 
             /*
             string meshAsset = AssetDatabase.GetAssetPath(_mMesh);
@@ -1197,6 +1201,21 @@ public class UVRefocusEditor : EditorWindow
         }
 		#endregion
 
+        #region Highlight the ends of the fingers
+
+        Dictionary<int, int> fingerGroups = new Dictionary<int, int>();
+        foreach (KeyValuePair<int, int> kvp in marchCounts)
+        {
+            float ratio1 = kvp.Value / (float)order;
+            if (ratio1 > 0.5f)
+            {
+                fingerGroups[kvp.Key] = 0;
+            }
+        }
+        marchCounts = fingerGroups;
+
+        #endregion
+
         #region show result
 
         foreach (KeyValuePair<int, int> kvp in marchCounts)
@@ -1214,6 +1233,50 @@ public class UVRefocusEditor : EditorWindow
             colors[face2] = GetColorRatio(ratio2);
             colors[face3] = GetColorRatio(ratio3);
         }
+
+        #region Isolate each finger tip
+
+        if (_mShowFingerTips)
+        {
+            marchCounts = new Dictionary<int, int>();
+            Color color = Color.black;
+            for (int fingerId = 0; fingerId < 5; ++fingerId)
+            {
+                Dictionary<int, int> finger = GetAdjacentFaces(fingerGroups, sortedFaces, dictFaces, dictVerteces, verts);
+                foreach (KeyValuePair<int, int> kvp in finger)
+                {
+                    int face = kvp.Key;
+                    int face1 = dictFaces[face][0];
+                    int face2 = dictFaces[face][1];
+                    int face3 = dictFaces[face][2];
+                    // marchCounts[face] = (int)(fingerId / 5f * order);
+                    switch (fingerId)
+                    {
+                        case 0:
+                            color = Color.red;
+                            break;
+                        case 1:
+                            color = Color.green;
+                            break;
+                        case 2:
+                            color = Color.blue;
+                            break;
+                        case 3:
+                            color = Color.magenta;
+                            break;
+                        case 4:
+                            color = Color.yellow;
+                            break;
+                    }
+                    colors[face1] = color;
+                    colors[face2] = color;
+                    colors[face3] = color;
+                }
+                //break;
+            }
+        }
+
+        #endregion
 
         #region Show step
 
@@ -1247,15 +1310,95 @@ public class UVRefocusEditor : EditorWindow
         #endregion
     }
 
+    Dictionary<int, int> GetAdjacentFaces(Dictionary<int, int> group, 
+        List<int> sortedFaces,
+        Dictionary<int, List<int>> dictFaces,
+        Dictionary<Vector3, List<int>> dictVerteces,
+        Vector3[] verts)
+    {
+        Dictionary<int, int> result = new Dictionary<int, int>();
+        List<int> searchGroup = new List<int>();
+        foreach (KeyValuePair<int, int> kvp in group)
+        {
+            searchGroup.Add(kvp.Key);
+            break;
+        }
+
+        /*
+        //sort faces by X
+        searchGroup.Sort(
+            delegate(int index1, int index2)
+            {
+                return sortedFaces.IndexOf(index1).CompareTo(sortedFaces.IndexOf(index2));
+            });
+        */
+
+        for (int searchId = 0; searchId < searchGroup.Count; ++searchId)
+        {
+            for (int i = 0; i < 3; ++i)
+            {
+                int face = dictFaces[searchGroup[searchId]][i];
+                Vector3 v = verts[face];
+                foreach (int adjacent in dictVerteces[v])
+                {
+                    if (group.ContainsKey(adjacent) &&
+                        !searchGroup.Contains(adjacent))
+                    {
+                        searchGroup.Add(adjacent);
+                    }
+                }
+            }
+
+            /*
+            // sort starting at searchId+1
+            //sort faces by X
+            searchGroup.Sort(
+                delegate(int index1, int index2)
+                {
+                    if (searchGroup.IndexOf(index1) <= searchId)
+                    {
+                        return -1;
+                    }
+                    if (searchGroup.IndexOf(index2) <= searchId)
+                    {
+                        return 1;
+                    }
+                    return sortedFaces.IndexOf(index1).CompareTo(sortedFaces.IndexOf(index2));
+                });
+             */
+        }
+
+        foreach (int face in searchGroup)
+        {
+            result[face] = 0;
+        }
+
+        #region remove search group from group
+        foreach (int face in searchGroup)
+        {
+            if (group.ContainsKey(face))
+            {
+                group.Remove(face);
+            }
+        }
+        #endregion
+
+        return result;
+    }
+
     Color GetColorRatio(float ratio)
     {
-        if (ratio < 0.5f)
+        if (ratio < 0.3f)
         {
-            return Color.Lerp(Color.red, Color.green, ratio*2);
+            return Color.Lerp(Color.red, Color.green, ratio/.3f);
+        }
+        else if (ratio < 0.6f)
+        {
+            return Color.Lerp(Color.green, Color.blue, (ratio - .3f) / .3f);
         }
         else
         {
-            return Color.Lerp(Color.green, Color.blue, (ratio - 0.5f)*2);
+            return Color.Lerp(Color.blue, Color.magenta, (ratio - 0.6f) / .6f);
         }
     }
 
@@ -1309,6 +1452,13 @@ public class UVRefocusEditor : EditorWindow
             {
                 return sortedFaces.IndexOf(index1).CompareTo(sortedFaces.IndexOf(index2));
 		});
+		*/
+
+		/*
+        if (searchableList.Count > 2)
+        {
+            searchableList.RemoveRange(2, searchableList.Count - 2);
+        }
 		*/
 
 		/*
