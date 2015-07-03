@@ -693,9 +693,31 @@ public class UVRefocusEditor : EditorWindow
         }
 
         int[] triangles = mesh.triangles;
-        HighlightFaces(t, triangles, verts, colors);
 
-        FindRightFingers(t, triangles, verts, colors);
+		Vector3[] perps = new Vector3[triangles.Length];
+
+		#region Calculate perpendicular angles
+
+		for (int i = 0; i < triangles.Length; i += 3)
+		{
+			int face1 = triangles[i];
+			int face2 = triangles[i + 1];
+			int face3 = triangles[i + 2];
+
+			Vector3 side1 = verts[face2] - verts[face1];
+			Vector3 side2 = verts[face3] - verts[face1];
+			Vector3 perp = Vector3.Cross(side1, side2);
+				
+			perps[i] = perp;
+			perps[i+1] = perp;
+			perps[i+2] = perp;
+		}
+
+		#endregion
+
+        HighlightFaces(t, triangles, verts, perps, colors);
+
+        FindRightFingers(t, triangles, verts, perps, colors);
 
         if (_sSelectedMesh == t.gameObject &&
             _sInstanceUVMap)
@@ -759,7 +781,7 @@ public class UVRefocusEditor : EditorWindow
         _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot*v + rot*perp.normalized*length, color));
     }
 
-    void HighlightFace(Transform t, int[] triangles, Vector3[] verts, Color32[] colors, int index, Color32 color)
+    void HighlightFace(Transform t, int[] triangles, Vector3[] verts, Vector3[] perps, Color32[] colors, int index, Color32 color)
     {
         Vector3 pos = t.position;
         Quaternion rot = t.rotation;
@@ -782,12 +804,8 @@ public class UVRefocusEditor : EditorWindow
                     temp = temp.parent;
                 }
 
-                Vector3 side1 = verts[face2] - verts[face1];
-                Vector3 side2 = verts[face3] - verts[face1];
-                Vector3 perp = Vector3.Cross(side1, side2);
-
                 _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v, color));
-                _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v + rot * perp.normalized * 0.2f, color));
+                _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v + rot * perps[i].normalized * 0.2f, color));
 
                 /*
                 float ratio1 = Vector3.Dot(Vector3.right, perp.normalized);
@@ -811,12 +829,12 @@ public class UVRefocusEditor : EditorWindow
         }
     }
 
-    void HighlightFace(Transform t, int[] triangles, Vector3[] verts, Color32[] colors, int index)
+    void HighlightFace(Transform t, int[] triangles, Vector3[] verts, Vector3[] perps, Color32[] colors, int index)
     {
-        HighlightFace(t, triangles, verts, colors, index, Color.cyan);
+        HighlightFace(t, triangles, verts, perps, colors, index, Color.cyan);
     }
 
-    void HighlightFaces(Transform t, int[] triangles, Vector3[] verts, Color32[] colors)
+    void HighlightFaces(Transform t, int[] triangles, Vector3[] verts, Vector3[] perps, Color32[] colors)
     {
         Vector3 pos = t.position;
         Quaternion rot = t.rotation;
@@ -824,7 +842,7 @@ public class UVRefocusEditor : EditorWindow
         {
             if (colors[index] != Color.black)
             {
-                HighlightFace(t, triangles, verts, colors, index);
+                HighlightFace(t, triangles, verts, perps, colors, index);
             }
         }
     }
@@ -870,7 +888,7 @@ public class UVRefocusEditor : EditorWindow
         }
     }
 
-    void FindRightFingers(Transform t, int[] triangles, Vector3[] verts, Color32[] colors)
+    void FindRightFingers(Transform t, int[] triangles, Vector3[] verts, Vector3[] perps, Color32[] colors)
     {
         Vector3 pos = t.position;
         Quaternion rot = t.rotation;
@@ -967,8 +985,12 @@ public class UVRefocusEditor : EditorWindow
 
                         if (_sSelectedMesh == t.gameObject)
                         {
-                            SceneView.lastActiveSceneView.LookAt(DrawVectorInWorldSpace(t, ref pos, ref rot,
-                                verts[face], perp, Color.red));
+							Vector3 v = DrawVectorInWorldSpace(t, ref pos, ref rot,
+							                                   verts[face], perp, Color.red);
+							foreach (SceneView sceneView in SceneView.sceneViews)
+							{
+								SceneView.lastActiveSceneView.LookAt(v);
+							}
                         }
                     }
                 }
@@ -1092,10 +1114,16 @@ public class UVRefocusEditor : EditorWindow
 
         #region Marching Algorithm
 
+		#region Clear colors
+
         for (int i = 0; i < colors.Length; ++i)
         {
             colors[i] = Color.black;
         }
+
+		#endregion
+
+		#region Show verts in sort order
 
         List<int> marchList = new List<int>();
         foreach (int face in sortedFaces)
@@ -1103,11 +1131,46 @@ public class UVRefocusEditor : EditorWindow
             marchList.Add(face);
         }
 
-        List<int> searchableList = new List<int>();
-        searchableList.Add(marchList[0]);
+		Dictionary<int, int> marchCounts = new Dictionary<int, int>();
+		int order = 0;
+		foreach (int face in sortedFaces)
+		{
+			marchCounts[face] = order;
+			++order;
+		}
 
-        Dictionary<int, int> marchCounts = new Dictionary<int, int>();
-        int order = 0;
+		#endregion
+
+		#region Show number of adjacent polys
+		/*
+		order = 0;
+		marchCounts.Clear();
+		foreach (int face in sortedFaces)
+		{
+			Vector3 v = verts[face];
+			foreach (int adjacent in dictVerteces[v])
+			{
+				if (marchCounts.ContainsKey(face))
+				{
+					++marchCounts[face];
+					order = Mathf.Max (order, marchCounts[face]);
+				}
+				else
+				{
+					marchCounts[face] = 1;
+				}
+			}
+		}
+		*/
+		#endregion
+
+		#region March adjacent polys
+        List<int> searchableList = new List<int>();
+		searchableList.Add(sortedFaces[sortedFaces.Count - 1]);
+
+		marchCounts.Clear();
+		order = 0;
+		int lastOrder = 0;
         while (marchList.Count > 0 &&
             (_sStep < 0 ||
             order < _sStep))
@@ -1115,22 +1178,24 @@ public class UVRefocusEditor : EditorWindow
             //Debug.Log("SearchCount: " + searchableList.Count);
             if (searchableList.Count > 0)
             {
-                RecursiveMarch(searchableList, dictFaces, sortedFaces, dictVerteces,
-                    verts, marchList, searchableList[0], marchCounts,
+				MarchFaces(searchableList, dictFaces, sortedFaces, dictVerteces,
+                    verts, perps, marchList, searchableList[0], marchCounts,
                     ref order, 0);
             }
-            else
-            {
-                Debug.Log("Out of things to search for...");
-                RecursiveMarch(searchableList, dictFaces, sortedFaces, dictVerteces, verts,
-                    marchList, marchList[0], marchCounts,
-                    ref order, 0);
-            }
+			if (lastOrder != order)
+			{
+				lastOrder = order;
+			}
+			else
+			{
+				break;
+			}
             if (searchableList.Count == 0)
             {
                 break;
             }
         }
+		#endregion
 
         #region show result
 
@@ -1194,69 +1259,67 @@ public class UVRefocusEditor : EditorWindow
         }
     }
 
-    void RecursiveMarch(List<int> searchableList, Dictionary<int, List<int>> dictFaces,
+    void MarchFaces(List<int> searchableList, Dictionary<int, List<int>> dictFaces,
         List<int> sortedFaces, Dictionary<Vector3, List<int>> dictVerteces,
         Vector3[] verts,
+	    Vector3[] perps,
         List<int> marchList,
         int march, Dictionary<int, int> marchCounts, ref int order, int depth)
     {
-        //Debug.Log("March: "+march);
-        if (searchableList.Contains(march))
-        {
-            searchableList.Remove(march);
-            marchCounts[march] = order;
-            ++order;
-        }
+		//Debug.Log("March: "+march);
 
-        if (marchList.Contains(march))
-        {
-            marchList.Remove(march);
-        }
+		// the selected face
+		int face1 = dictFaces[march][0];
+		int face2 = dictFaces[march][1];
+		int face3 = dictFaces[march][2];
 
-        Vector3 v = verts[march];
+		for (int i = 0; i < 3; ++i)
+		{
+			int face = dictFaces[march][i];
+			if (searchableList.Contains(face))
+	        {
+				searchableList.Remove(face);
+				marchCounts[face] = order;
+	        }
 
-        foreach (int adjacent in dictVerteces[v])
-        //foreach (int adjacent in adjacentList[march])
-        {
-            //Debug.Log("Adjacent: " + adjacent);
-            if (marchList.Contains(adjacent) &&
-                !searchableList.Contains(adjacent))
-            {
-                searchableList.Add(adjacent);
-            }
-        }
+	        if (marchList.Contains(face))
+	        {
+	            marchList.Remove(face);
+	        }
 
+			Vector3 v = verts[face];
+			
+			foreach (int adjacent in dictVerteces[v])
+			{
+				//Debug.Log("Adjacent: " + adjacent);
+				if (marchList.Contains(adjacent) &&
+				    !searchableList.Contains(adjacent))
+				{
+					searchableList.Add(adjacent);
+				}
+			}
+		}
+
+		++order;
+
+		/*
         //sort faces by X
         searchableList.Sort(
             delegate(int index1, int index2)
             {
                 return sortedFaces.IndexOf(index1).CompareTo(sortedFaces.IndexOf(index2));
-            });
+		});
+		*/
 
-        /*
-
-        foreach (int adjacent in sortedAdjacents)
-        {
-            if (!searchableList.Contains(adjacent))
-            {
-                searchableList.Add(adjacent);
-            }
-            if (!marchCounts.ContainsKey(adjacent))
-            {
-                marchCounts[adjacent] = order;
-                ++order;
-                nextAdjacents.Add(adjacent);
-            }
-        }
-        if (depth < 1)
-        {
-            foreach (int adjacent in nextAdjacents)
-            {
-                RecursiveMarch(searchableList, dictFaces, sortedFaces, marchList, adjacent, marchCounts, ref order,
-                    depth + 1);
-            }
-        }
-        */
+		/*
+		//sort faces by dot product
+		searchableList.Sort(
+			delegate(int index1, int index2)
+			{
+				return Vector3.Dot(perps[march], perps[index1]).CompareTo(Vector3.Dot(perps[march], perps[index2]));
+			}
+		);
+		*/
     }
 
     Vector3 GetPerpendicular(Vector3[] verts, int face1, int face2, int face3)
