@@ -1238,41 +1238,30 @@ public class UVRefocusEditor : EditorWindow
 
         if (_mShowFingerTips)
         {
-            List<Dictionary<int, int>> fingers = new List<Dictionary<int, int>>();
+            List<List<int>> fingers = new List<List<int>>();
             for (int fingerCount = 0; fingerCount < 5; ++fingerCount)
             {
-                Dictionary<int, int> finger = GetAdjacentFaces(fingerGroups, sortedFaces, dictFaces, dictVerteces, verts);
+                List<int> finger = GetAdjacentFaces(fingerGroups, sortedFaces, dictFaces, dictVerteces, verts);
                 fingers.Add(finger);
             }
 
             //sort fingers by Z
             fingers.Sort(
-                delegate(Dictionary<int, int> finger1, Dictionary<int, int> finger2)
+                delegate(List<int> finger1, List<int> finger2)
                 {
-                    int face1 = 0;
-                    foreach (KeyValuePair<int, int> kvp in finger1)
-                    {
-                        face1 = kvp.Key;
-                        break;
-                    }
-
-                    int face2 = 0;
-                    foreach (KeyValuePair<int, int> kvp in finger2)
-                    {
-                        face2 = kvp.Key;
-                        break;
-                    }
-
+                    int face1 = finger1[0];
+                    int face2 = finger2[0];
                     return verts[face1].z.CompareTo(verts[face2].z);
                 });
 
+            // color fingers by id
             Color color = Color.black;
             for (int fingerId = 0; fingerId < fingers.Count; ++fingerId)
             {
-                Dictionary<int, int> finger = fingers[fingerId];
-                foreach (KeyValuePair<int, int> kvp in finger)
+                List<int> finger = fingers[fingerId];
+                for (int i = 0; i < finger.Count; ++i)
                 {
-                    int face = kvp.Key;
+                    int face = finger[i];
                     int face1 = dictFaces[face][0];
                     int face2 = dictFaces[face][1];
                     int face3 = dictFaces[face][2];
@@ -1297,6 +1286,23 @@ public class UVRefocusEditor : EditorWindow
                     colors[face1] = color;
                     colors[face2] = color;
                     colors[face3] = color;
+                }
+            }
+
+            //make tip white
+            for (int fingerId = 0; fingerId < fingers.Count; ++fingerId)
+            {
+                List<int> finger = fingers[fingerId];
+                for (int i = 0; i < finger.Count; ++i)
+                {
+                    int face = finger[i];
+                    int face1 = dictFaces[face][0];
+                    int face2 = dictFaces[face][1];
+                    int face3 = dictFaces[face][2];
+                    colors[face1] = Color.white;
+                    colors[face2] = Color.white;
+                    colors[face3] = Color.white;
+                    break;
                 }
             }
         }
@@ -1335,28 +1341,19 @@ public class UVRefocusEditor : EditorWindow
         #endregion
     }
 
-    Dictionary<int, int> GetAdjacentFaces(Dictionary<int, int> group, 
+    List<int> GetAdjacentFaces(Dictionary<int, int> group, 
         List<int> sortedFaces,
         Dictionary<int, List<int>> dictFaces,
         Dictionary<Vector3, List<int>> dictVerteces,
         Vector3[] verts)
     {
-        Dictionary<int, int> result = new Dictionary<int, int>();
+        List<int> result = new List<int>();
         List<int> searchGroup = new List<int>();
         foreach (KeyValuePair<int, int> kvp in group)
         {
             searchGroup.Add(kvp.Key);
             break;
         }
-
-        /*
-        //sort faces by X
-        searchGroup.Sort(
-            delegate(int index1, int index2)
-            {
-                return sortedFaces.IndexOf(index1).CompareTo(sortedFaces.IndexOf(index2));
-            });
-        */
 
         for (int searchId = 0; searchId < searchGroup.Count; ++searchId)
         {
@@ -1373,29 +1370,11 @@ public class UVRefocusEditor : EditorWindow
                     }
                 }
             }
-
-            /*
-            // sort starting at searchId+1
-            //sort faces by X
-            searchGroup.Sort(
-                delegate(int index1, int index2)
-                {
-                    if (searchGroup.IndexOf(index1) <= searchId)
-                    {
-                        return -1;
-                    }
-                    if (searchGroup.IndexOf(index2) <= searchId)
-                    {
-                        return 1;
-                    }
-                    return sortedFaces.IndexOf(index1).CompareTo(sortedFaces.IndexOf(index2));
-                });
-             */
         }
 
         foreach (int face in searchGroup)
         {
-            result[face] = 0;
+            result.Add(face);
         }
 
         #region remove search group from group
@@ -1407,6 +1386,13 @@ public class UVRefocusEditor : EditorWindow
             }
         }
         #endregion
+
+        //sort faces by X
+        result.Sort(
+            delegate(int index1, int index2)
+            {
+                return sortedFaces.IndexOf(index1).CompareTo(sortedFaces.IndexOf(index2));
+            });
 
         return result;
     }
