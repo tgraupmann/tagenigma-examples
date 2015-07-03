@@ -1238,18 +1238,44 @@ public class UVRefocusEditor : EditorWindow
 
         if (_mShowFingerTips)
         {
-            marchCounts = new Dictionary<int, int>();
-            Color color = Color.black;
-            for (int fingerId = 0; fingerId < 5; ++fingerId)
+            List<Dictionary<int, int>> fingers = new List<Dictionary<int, int>>();
+            for (int fingerCount = 0; fingerCount < 5; ++fingerCount)
             {
                 Dictionary<int, int> finger = GetAdjacentFaces(fingerGroups, sortedFaces, dictFaces, dictVerteces, verts);
+                fingers.Add(finger);
+            }
+
+            //sort fingers by Z
+            fingers.Sort(
+                delegate(Dictionary<int, int> finger1, Dictionary<int, int> finger2)
+                {
+                    int face1 = 0;
+                    foreach (KeyValuePair<int, int> kvp in finger1)
+                    {
+                        face1 = kvp.Key;
+                        break;
+                    }
+
+                    int face2 = 0;
+                    foreach (KeyValuePair<int, int> kvp in finger2)
+                    {
+                        face2 = kvp.Key;
+                        break;
+                    }
+
+                    return verts[face1].z.CompareTo(verts[face2].z);
+                });
+
+            Color color = Color.black;
+            for (int fingerId = 0; fingerId < fingers.Count; ++fingerId)
+            {
+                Dictionary<int, int> finger = fingers[fingerId];
                 foreach (KeyValuePair<int, int> kvp in finger)
                 {
                     int face = kvp.Key;
                     int face1 = dictFaces[face][0];
                     int face2 = dictFaces[face][1];
                     int face3 = dictFaces[face][2];
-                    // marchCounts[face] = (int)(fingerId / 5f * order);
                     switch (fingerId)
                     {
                         case 0:
@@ -1272,7 +1298,6 @@ public class UVRefocusEditor : EditorWindow
                     colors[face2] = color;
                     colors[face3] = color;
                 }
-                //break;
             }
         }
 
