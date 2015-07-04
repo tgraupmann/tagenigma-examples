@@ -31,8 +31,6 @@ public class UVRefocusEditor : EditorWindow
 
     private static Texture2D _sInstanceUVMap = null;
 
-    private static int _sStep = -1;
-
     private bool _mShowFingerTips = false;
 
     /// <summary>
@@ -230,22 +228,6 @@ public class UVRefocusEditor : EditorWindow
             {
                 Find(SearchLocations.RightFoot);
             }
-            GUILayout.EndHorizontal();
-
-            GUILayout.Label(string.Empty);
-
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("--"))
-            {
-                _sStep = Mathf.Max(-1, _sStep - 1);
-                Find(SearchLocations.LeftHand);
-            }
-            if (GUILayout.Button("++"))
-            {
-                ++_sStep;
-                Find(SearchLocations.LeftHand);
-            }
-            _sStep = EditorGUILayout.IntField("Step", _sStep);
             GUILayout.EndHorizontal();
 
             GUILayout.Label(string.Empty);
@@ -1135,7 +1117,8 @@ public class UVRefocusEditor : EditorWindow
             marchList.Add(face);
         }
 
-		Dictionary<int, int> marchCounts = new Dictionary<int, int>();
+        // march counts in sort order
+        Dictionary<int, int> marchCounts = new Dictionary<int, int>();
 		int order = 0;
 		foreach (int face in sortedFaces)
 		{
@@ -1175,9 +1158,7 @@ public class UVRefocusEditor : EditorWindow
 		marchCounts.Clear();
 		order = 0;
 		int lastOrder = 0;
-        while (marchList.Count > 0 &&
-            (_sStep < 0 ||
-            order < _sStep))
+        while (marchList.Count > 0)
         {
             //Debug.Log("SearchCount: " + searchableList.Count);
             if (searchableList.Count > 0)
@@ -1241,7 +1222,13 @@ public class UVRefocusEditor : EditorWindow
             List<List<int>> fingers = new List<List<int>>();
             for (int fingerCount = 0; fingerCount < 5; ++fingerCount)
             {
-                List<int> finger = GetAdjacentFaces(fingerGroups, sortedFaces, dictFaces, dictVerteces, verts);
+                List<int> searchGroup = new List<int>();
+                foreach (KeyValuePair<int, int> kvp in fingerGroups)
+                {
+                    searchGroup.Add(kvp.Key);
+                    break;
+                }
+                List<int> finger = GetAdjacentFaces(fingerGroups, searchGroup, sortedFaces, dictFaces, dictVerteces, verts);
                 fingers.Add(finger);
             }
 
@@ -1249,89 +1236,55 @@ public class UVRefocusEditor : EditorWindow
             fingers.Sort(
                 delegate(List<int> finger1, List<int> finger2)
                 {
+                    if (finger1.Count == 0)
+                    {
+                        return 0;
+                    }
                     int face1 = finger1[0];
+                    if (finger2.Count == 0)
+                    {
+                        return 0;
+                    }
                     int face2 = finger2[0];
                     return verts[face1].z.CompareTo(verts[face2].z);
                 });
 
-            // color fingers by id
-            Color color = Color.black;
+            DisplayFingers(fingers, dictFaces, colors);
+
+            /*
+
+            // march counts in sort order
+            marchCounts = new Dictionary<int, int>();
+            order = 0;
+            foreach (int face in sortedFaces)
+            {
+                marchCounts[face] = order;
+                ++order;
+            }
+
+            // select a larger part of each finger
             for (int fingerId = 0; fingerId < fingers.Count; ++fingerId)
             {
                 List<int> finger = fingers[fingerId];
-                for (int i = 0; i < finger.Count; ++i)
+                if (finger.Count > 0)
                 {
-                    int face = finger[i];
-                    int face1 = dictFaces[face][0];
-                    int face2 = dictFaces[face][1];
-                    int face3 = dictFaces[face][2];
-                    switch (fingerId)
+                    fingerGroups = new Dictionary<int, int>();
+                    foreach (KeyValuePair<int, int> kvp in marchCounts)
                     {
-                        case 0:
-                            color = Color.red;
-                            break;
-                        case 1:
-                            color = Color.green;
-                            break;
-                        case 2:
-                            color = Color.blue;
-                            break;
-                        case 3:
-                            color = Color.magenta;
-                            break;
-                        case 4:
-                            color = Color.yellow;
-                            break;
-                    }
-                    colors[face1] = color;
-                    colors[face2] = color;
-                    colors[face3] = color;
-                }
-            }
-
-            //make tip white
-            for (int fingerId = 0; fingerId < fingers.Count; ++fingerId)
-            {
-                List<int> finger = fingers[fingerId];
-                for (int i = 0; i < finger.Count; ++i)
-                {
-                    int face = finger[i];
-                    int face1 = dictFaces[face][0];
-                    int face2 = dictFaces[face][1];
-                    int face3 = dictFaces[face][2];
-                    colors[face1] = Color.white;
-                    colors[face2] = Color.white;
-                    colors[face3] = Color.white;
-                    break;
-                }
-            }
-        }
-
-        #endregion
-
-        #region Show step
-
-        if (_sStep >= 0)
-        {
-            if ((_sStep - _sStep%3 + 3) < triangles.Length)
-            {
-                int face = sortedFaces[_sStep];
-
-                foreach (int adjacent in dictVerteces[verts[face]])
-                {
-                    foreach (int adjacent2 in dictVerteces[verts[adjacent]])
-                    {
-                        foreach (int adjacent3 in dictVerteces[verts[adjacent2]])
+                        float ratio1 = kvp.Value / (float)order;
+                        if (ratio1 < 0.6f)
                         {
-                            colors[adjacent3] = Color.cyan;
+                            fingerGroups[kvp.Key] = 0;
                         }
-                        colors[adjacent2] = Color.magenta;
                     }
-                    colors[adjacent] = Color.blue;
+                    List<int> searchGroup = new List<int>();
+                    searchGroup.Add(finger[0]);
+                    fingers[fingerId] = GetAdjacentFaces(fingerGroups, searchGroup, sortedFaces, dictFaces, dictVerteces, verts);
                 }
-
-                colors[face] = Color.white;
             }
+
+            DisplayFingers(fingers, dictFaces, colors);
+            */
         }
 
         #endregion
@@ -1341,19 +1294,68 @@ public class UVRefocusEditor : EditorWindow
         #endregion
     }
 
+    void DisplayFingers(List<List<int>> fingers, Dictionary<int, List<int>> dictFaces, Color32[] colors)
+    {
+        // color fingers by id
+        Color color = Color.black;
+        for (int fingerId = 0; fingerId < fingers.Count; ++fingerId)
+        {
+            List<int> finger = fingers[fingerId];
+            for (int i = 0; i < finger.Count; ++i)
+            {
+                int face = finger[i];
+                int face1 = dictFaces[face][0];
+                int face2 = dictFaces[face][1];
+                int face3 = dictFaces[face][2];
+                switch (fingerId)
+                {
+                    case 0:
+                        color = Color.red;
+                        break;
+                    case 1:
+                        color = Color.green;
+                        break;
+                    case 2:
+                        color = Color.blue;
+                        break;
+                    case 3:
+                        color = Color.magenta;
+                        break;
+                    case 4:
+                        color = Color.yellow;
+                        break;
+                }
+                colors[face1] = color;
+                colors[face2] = color;
+                colors[face3] = color;
+            }
+        }
+
+        //make tip white
+        for (int fingerId = 0; fingerId < fingers.Count; ++fingerId)
+        {
+            List<int> finger = fingers[fingerId];
+            if (finger.Count > 0)
+            {
+                int face = finger[0];
+                int face1 = dictFaces[face][0];
+                int face2 = dictFaces[face][1];
+                int face3 = dictFaces[face][2];
+                colors[face1] = Color.white;
+                colors[face2] = Color.white;
+                colors[face3] = Color.white;
+            }
+        }
+    }
+
     List<int> GetAdjacentFaces(Dictionary<int, int> group, 
+        List<int> searchGroup,
         List<int> sortedFaces,
         Dictionary<int, List<int>> dictFaces,
         Dictionary<Vector3, List<int>> dictVerteces,
         Vector3[] verts)
     {
         List<int> result = new List<int>();
-        List<int> searchGroup = new List<int>();
-        foreach (KeyValuePair<int, int> kvp in group)
-        {
-            searchGroup.Add(kvp.Key);
-            break;
-        }
 
         for (int searchId = 0; searchId < searchGroup.Count; ++searchId)
         {
