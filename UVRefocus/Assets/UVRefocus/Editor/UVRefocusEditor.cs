@@ -33,6 +33,8 @@ public class UVRefocusEditor : EditorWindow
 
     private bool _mShowFingerTips = false;
 
+    private bool _mExtendFingerTips = false;
+
     /// <summary>
     /// Open an instance of the panel
     /// </summary>
@@ -139,6 +141,8 @@ public class UVRefocusEditor : EditorWindow
             }
 
             _mShowFingerTips = EditorGUILayout.Toggle("ShowFingerTips", _mShowFingerTips);
+
+            _mExtendFingerTips = EditorGUILayout.Toggle("ExtendFingerTips", _mExtendFingerTips);
 
             /*
             string meshAsset = AssetDatabase.GetAssetPath(_mMesh);
@@ -1197,23 +1201,7 @@ public class UVRefocusEditor : EditorWindow
 
         #endregion
 
-        #region show result
-
-        foreach (KeyValuePair<int, int> kvp in marchCounts)
-        {
-            int face = kvp.Key;
-            int face1 = dictFaces[face][0];
-            int face2 = dictFaces[face][1];
-            int face3 = dictFaces[face][2];
-
-            float ratio1 = kvp.Value / (float)order;
-            float ratio2 = ratio1;
-            float ratio3 = ratio1;
-
-            colors[face1] = GetColorRatio(ratio1);
-            colors[face2] = GetColorRatio(ratio2);
-            colors[face3] = GetColorRatio(ratio3);
-        }
+        DisplayMarchCount(marchCounts, dictFaces, colors);
 
         #region Isolate each finger tip
 
@@ -1251,47 +1239,76 @@ public class UVRefocusEditor : EditorWindow
 
             DisplayFingers(fingers, dictFaces, colors);
 
-            /*
-
-            // march counts in sort order
-            marchCounts = new Dictionary<int, int>();
-            order = 0;
-            foreach (int face in sortedFaces)
+            if (_mExtendFingerTips)
             {
-                marchCounts[face] = order;
-                ++order;
-            }
-
-            // select a larger part of each finger
-            for (int fingerId = 0; fingerId < fingers.Count; ++fingerId)
-            {
-                List<int> finger = fingers[fingerId];
-                if (finger.Count > 0)
+                // march counts in sort order
+                marchCounts = new Dictionary<int, int>();
+                order = 0;
+                foreach (int face in sortedFaces)
                 {
-                    fingerGroups = new Dictionary<int, int>();
-                    foreach (KeyValuePair<int, int> kvp in marchCounts)
-                    {
-                        float ratio1 = kvp.Value / (float)order;
-                        if (ratio1 < 0.6f)
-                        {
-                            fingerGroups[kvp.Key] = 0;
-                        }
-                    }
-                    List<int> searchGroup = new List<int>();
-                    searchGroup.Add(finger[0]);
-                    fingers[fingerId] = GetAdjacentFaces(fingerGroups, searchGroup, sortedFaces, dictFaces, dictVerteces, verts);
+                    marchCounts[face] = order;
+                    ++order;
                 }
-            }
 
-            DisplayFingers(fingers, dictFaces, colors);
-            */
+                DisplayMarchCount(marchCounts, dictFaces, colors);
+
+                // select a larger part of each finger
+                for (int fingerId = 0; fingerId < fingers.Count; ++fingerId)
+                {
+                    List<int> finger = fingers[fingerId];
+                    if (finger.Count > 0)
+                    {
+                        fingerGroups = new Dictionary<int, int>();
+                        foreach (KeyValuePair<int, int> kvp in marchCounts)
+                        {
+                            float ratio1 = kvp.Value/(float) order;
+                            if (ratio1 < 0.45f)
+                            {
+                                fingerGroups[kvp.Key] = 0;
+                            }
+                        }
+                        List<int> searchGroup = new List<int>();
+                        searchGroup.Add(finger[0]);
+                        fingers[fingerId] = GetAdjacentFaces(fingerGroups, searchGroup, sortedFaces, dictFaces,
+                            dictVerteces, verts);
+                    }
+                }
+
+                DisplayFingers(fingers, dictFaces, colors);
+            }
         }
 
         #endregion
 
         #endregion
+    }
 
-        #endregion
+    void DisplayMarchCount(Dictionary<int, int> marchCounts, Dictionary<int, List<int>> dictFaces, Color32[] colors)
+    {
+        foreach (KeyValuePair<int, int> kvp in marchCounts)
+        {
+            int face = kvp.Key;
+            int face1 = dictFaces[face][0];
+            int face2 = dictFaces[face][1];
+            int face3 = dictFaces[face][2];
+
+            float ratio1 = kvp.Value / (float)marchCounts.Count;
+            float ratio2 = ratio1;
+            float ratio3 = ratio1;
+
+            if (colors[face1] == Color.black)
+            {
+                colors[face1] = GetColorRatio(ratio1);
+            }
+            if (colors[face2] == Color.black)
+            {
+                colors[face2] = GetColorRatio(ratio2);
+            }
+            if (colors[face3] == Color.black)
+            {
+                colors[face3] = GetColorRatio(ratio3);
+            }
+        }
     }
 
     void DisplayFingers(List<List<int>> fingers, Dictionary<int, List<int>> dictFaces, Color32[] colors)
