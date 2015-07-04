@@ -1184,29 +1184,32 @@ public class UVRefocusEditor : EditorWindow
                 break;
             }
         }
-		#endregion
-
-        #region Highlight the ends of the fingers
-
-        Dictionary<int, int> fingerGroups = new Dictionary<int, int>();
-        foreach (KeyValuePair<int, int> kvp in marchCounts)
-        {
-            float ratio1 = kvp.Value / (float)order;
-            if (ratio1 > 0.5f)
-            {
-                fingerGroups[kvp.Key] = 0;
-            }
-        }
-        marchCounts = fingerGroups;
-
-        #endregion
 
         DisplayMarchCount(marchCounts, dictFaces, colors);
+
+		#endregion
 
         #region Isolate each finger tip
 
         if (_mShowFingerTips)
         {
+            #region Highlight the ends of the fingers
+
+            Dictionary<int, int> fingerGroups = new Dictionary<int, int>();
+            foreach (KeyValuePair<int, int> kvp in marchCounts)
+            {
+                float ratio1 = kvp.Value / (float)order;
+                if (ratio1 > 0.5f)
+                {
+                    fingerGroups[kvp.Key] = 0;
+                }
+            }
+            marchCounts = fingerGroups;
+
+            #endregion
+
+            DisplayMarchCount(marchCounts, dictFaces, colors);
+
             List<List<int>> fingers = new List<List<int>>();
             for (int fingerCount = 0; fingerCount < 5; ++fingerCount)
             {
