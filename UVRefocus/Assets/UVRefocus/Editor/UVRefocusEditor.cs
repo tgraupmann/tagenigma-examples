@@ -33,6 +33,8 @@ public class UVRefocusEditor : EditorWindow
 
     private bool _mShowFingerTips = false;
 
+    private bool _mDisplayMarchCount = false;
+
     private bool _mExtendFingerTips = false;
 
     /// <summary>
@@ -141,6 +143,8 @@ public class UVRefocusEditor : EditorWindow
             }
 
             _mShowFingerTips = EditorGUILayout.Toggle("ShowFingerTips", _mShowFingerTips);
+
+            _mDisplayMarchCount = EditorGUILayout.Toggle("DisplayMarchCount", _mDisplayMarchCount);
 
             _mExtendFingerTips = EditorGUILayout.Toggle("ExtendFingerTips", _mExtendFingerTips);
 
@@ -1104,14 +1108,7 @@ public class UVRefocusEditor : EditorWindow
 
         #region Marching Algorithm
 
-		#region Clear colors
-
-        for (int i = 0; i < colors.Length; ++i)
-        {
-            colors[i] = Color.black;
-        }
-
-		#endregion
+        ClearColors(colors);
 
 		#region Show verts in sort order
 
@@ -1242,8 +1239,10 @@ public class UVRefocusEditor : EditorWindow
 
             DisplayFingers(fingers, dictFaces, colors);
 
-            if (_mExtendFingerTips)
+            if (_mDisplayMarchCount)
             {
+                ClearColors(colors);
+
                 // march counts in sort order
                 marchCounts = new Dictionary<int, int>();
                 order = 0;
@@ -1254,6 +1253,11 @@ public class UVRefocusEditor : EditorWindow
                 }
 
                 DisplayMarchCount(marchCounts, dictFaces, colors);
+            }
+
+            if (_mExtendFingerTips)
+            {
+                ClearColors(colors);
 
                 // select a larger part of each finger
                 for (int fingerId = 0; fingerId < fingers.Count; ++fingerId)
@@ -1261,27 +1265,53 @@ public class UVRefocusEditor : EditorWindow
                     List<int> finger = fingers[fingerId];
                     if (finger.Count > 0)
                     {
-                        fingerGroups = new Dictionary<int, int>();
-                        foreach (KeyValuePair<int, int> kvp in marchCounts)
+                        //find finger midpoint
+                        Vector3 startPos = verts[finger[0]];
+                        Vector3 midpoint = Vector3.zero;
+                        Vector3 min = startPos;
+                        Vector3 max = startPos;
+                        for (int i = 1; i < finger.Count; ++i)
                         {
-                            float ratio1 = kvp.Value/(float) order;
-                            if (ratio1 < 0.45f)
-                            {
-                                fingerGroups[kvp.Key] = 0;
-                            }
+                            min.x = Mathf.Min(min.x, verts[finger[i]].x);
+                            min.y = Mathf.Min(min.y, verts[finger[i]].y);
+                            min.z = Mathf.Min(min.z, verts[finger[i]].z);
+                            max.x = Mathf.Min(max.x, verts[finger[i]].x);
+                            max.y = Mathf.Max(max.y, verts[finger[i]].y);
+                            max.z = Mathf.Max(max.z, verts[finger[i]].z);
                         }
-                        List<int> searchGroup = new List<int>();
-                        searchGroup.Add(finger[0]);
-                        fingers[fingerId] = GetAdjacentFaces(fingerGroups, searchGroup, sortedFaces, dictFaces,
-                            dictVerteces, verts);
-                    }
-                }
+                        midpoint = (min + max)*0.5f;
 
-                DisplayFingers(fingers, dictFaces, colors);
+                        //find finger direction
+                        Vector3 direction = (midpoint - startPos).normalized;
+
+                        fingerGroups = new Dictionary<int, int>();
+                        for (int i = 0; i < sortedFaces.Count/3; ++i)
+                        {
+                            fingerGroups[sortedFaces[i]] = 0;
+                        }
+                        fingers[fingerId] = GetAdjacentFaces(finger, startPos, direction, 
+                            sortedFaces, dictFaces, dictVerteces, verts, colors);
+                        //break;
+                    }
+
+                    DisplayFingers(fingers, dictFaces, colors);
+                }
             }
         }
 
         #endregion
+
+        #endregion
+    }
+
+    void ClearColors(Color32[] colors)
+    {
+        #region Clear colors
+
+        for (int i = 0; i < colors.Length; ++i)
+        {
+            colors[i] = Color.black;
+        }
 
         #endregion
     }
@@ -1408,6 +1438,90 @@ public class UVRefocusEditor : EditorWindow
             }
         }
         #endregion
+
+        //sort faces by X
+        result.Sort(
+            delegate(int index1, int index2)
+            {
+                return sortedFaces.IndexOf(index1).CompareTo(sortedFaces.IndexOf(index2));
+            });
+
+        return result;
+    }
+
+    List<int> GetAdjacentFaces(List<int> oldFinger,
+        Vector3 startPos,
+        Vector3 direction,
+        List<int> sortedFaces,
+        Dictionary<int, List<int>> dictFaces,
+        Dictionary<Vector3, List<int>> dictVerteces,
+        Vector3[] verts,
+        Color32[] colors)
+    {
+        List<int> result = new List<int>();
+
+        List<int> searchGroup = new List<int>();
+        foreach (int face in oldFinger)
+        {
+            foreach (int adjacent in dictFaces[face])
+            {
+                //colors[adjacent] = Color.red;
+                if (!searchGroup.Contains(adjacent))
+                {
+                    searchGroup.Add(adjacent);
+                }
+            }
+            result.Add(face);
+        }
+
+        float scale = verts[sortedFaces[0]].x - verts[sortedFaces[sortedFaces.Count - 1]].x;
+
+        for (int searchId = 0; searchId < searchGroup.Count; ++searchId)
+        {
+            for (int i = 0; i < 3; ++i)
+            {
+                int face = dictFaces[searchGroup[searchId]][i];
+                Vector3 v = verts[face];
+                /*
+                foreach (int adjacent in dictVerteces[v])
+                {
+                    colors[adjacent] = GetColorRatio(Vector3.Magnitude((startPos - v)/scale));
+                }
+                */
+                if (Vector3.Magnitude((startPos - v) / scale) < 0.2f)
+                {
+                    foreach (int adjacent in dictVerteces[v])
+                    {
+                        colors[adjacent] = Color.white;
+
+                        if (!searchGroup.Contains(adjacent))
+                        {
+                            searchGroup.Add(adjacent);
+                        }
+
+                        if (!result.Contains(adjacent))
+                        {
+                            result.Add(adjacent);
+                        }
+
+
+                        /*
+                        const float k = 1f;
+                        const float threshold = .45f;
+                        //colors[adjacent] = GetColorRatio(Vector3.Dot(direction, k * (startPos - verts[face]).normalized));
+                        if (threshold < Vector3.Dot(direction, k*(startPos - verts[adjacent]).normalized))
+                        {
+                            //colors[adjacent] = Color.white;
+                            if (!result.Contains(adjacent))
+                            {
+                                result.Add(adjacent);
+                            }
+                        }
+                        */
+                    }
+                }
+            }
+        }
 
         //sort faces by X
         result.Sort(
