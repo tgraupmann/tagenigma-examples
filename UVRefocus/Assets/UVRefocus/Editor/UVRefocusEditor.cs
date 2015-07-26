@@ -31,6 +31,8 @@ public class UVRefocusEditor : EditorWindow
 
     private static Texture2D _sInstanceUVMap = null;
 
+    private bool _mShowFaceDirection = false;
+
     private bool _mShowFingerTips = false;
 
     private bool _mDisplayMarchCount = false;
@@ -141,6 +143,8 @@ public class UVRefocusEditor : EditorWindow
                     EditorPrefs.SetInt(string.Format("Mesh{0}", index), _mMeshObjects[index].GetInstanceID());
                 }
             }
+
+            _mShowFaceDirection = EditorGUILayout.Toggle("ShowFaceDirection", _mShowFaceDirection);
 
             _mShowFingerTips = EditorGUILayout.Toggle("ShowFingerTips", _mShowFingerTips);
 
@@ -686,6 +690,26 @@ public class UVRefocusEditor : EditorWindow
                 break;
         }
 
+        #region Calculate world verts
+
+        Vector3[] worldVerts = new Vector3[verts.Length];
+
+        for (int i = 0; i < verts.Length; ++i)
+        {
+            Vector3 v = verts[i];
+            Transform temp = t;
+            while (temp)
+            {
+                v.x *= temp.localScale.x;
+                v.y *= temp.localScale.y;
+                v.z *= temp.localScale.z;
+                temp = temp.parent;
+            }
+            worldVerts[i] = v;
+        }
+
+        #endregion
+
         int[] triangles = mesh.triangles;
 
 		Vector3[] perps = new Vector3[triangles.Length];
@@ -709,9 +733,33 @@ public class UVRefocusEditor : EditorWindow
 
 		#endregion
 
-        HighlightFaces(t, triangles, verts, perps, colors);
+        Vector3[] worldPerps = new Vector3[triangles.Length];
 
-        FindRightFingers(t, triangles, verts, perps, colors);
+        #region Calculate world perpendicular angles
+
+        for (int i = 0; i < triangles.Length; i += 3)
+        {
+            int face1 = triangles[i];
+            int face2 = triangles[i + 1];
+            int face3 = triangles[i + 2];
+
+            Vector3 side1 = worldVerts[face2] - worldVerts[face1];
+            Vector3 side2 = worldVerts[face3] - worldVerts[face1];
+            Vector3 perp = Vector3.Cross(side1, side2).normalized;
+
+            worldPerps[i] = perp;
+            worldPerps[i + 1] = perp;
+            worldPerps[i + 2] = perp;
+        }
+
+        #endregion
+
+        if (_mShowFaceDirection)
+        {
+            HighlightFaces(t, triangles, verts, perps, colors);
+        }
+
+        FindRightFingers(t, triangles, verts, worldVerts, perps, worldPerps, colors);
 
         if (_sSelectedMesh == t.gameObject &&
             _sInstanceUVMap)
@@ -830,8 +878,6 @@ public class UVRefocusEditor : EditorWindow
 
     void HighlightFaces(Transform t, int[] triangles, Vector3[] verts, Vector3[] perps, Color32[] colors)
     {
-        Vector3 pos = t.position;
-        Quaternion rot = t.rotation;
         for (int index = 0; index < verts.Length; ++index)
         {
             if (colors[index] != Color.black)
@@ -882,7 +928,7 @@ public class UVRefocusEditor : EditorWindow
         }
     }
 
-    void FindRightFingers(Transform t, int[] triangles, Vector3[] verts, Vector3[] perps, Color32[] colors)
+    void FindRightFingers(Transform t, int[] triangles, Vector3[] verts, Vector3[] worldVerts, Vector3[] perps, Vector3[] worldPerps, Color32[] colors)
     {
         Vector3 pos = t.position;
         Quaternion rot = t.rotation;
@@ -955,18 +1001,23 @@ public class UVRefocusEditor : EditorWindow
                 int face = kvp.Key;
                 if (verts[face].x == boundsMin.x)
                 {
-                    int face1 = dictFaces[face][0];
-                    int face2 = dictFaces[face][1];
-                    int face3 = dictFaces[face][2];
-
-                    Vector3 side1 = verts[face2] - verts[face1];
-                    Vector3 side2 = verts[face3] - verts[face1];
-                    Vector3 perp = Vector3.Cross(side1, side2);
-
                     if (!visited.Contains(face))
                     {
                         visited.Add(face);
-                        DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face], perp, Color.red);
+                        int face1 = dictFaces[face][0];
+                        int face2 = dictFaces[face][1];
+                        int face3 = dictFaces[face][2];
+                        /*
+                        Vector3 v = (verts[face1] + verts[face2] + verts[face3]) / 3f;
+                        if (Vector3.Dot(Vector3.right, perps[face]) > 0f)
+                        {
+                            DrawVectorInWorldSpace(t, ref pos, ref rot, v, -perps[face], Color.red);
+                        }
+                        else
+                        {
+                            DrawVectorInWorldSpace(t, ref pos, ref rot, v, perps[face], Color.red);
+                        }
+                        */
 
                         /*
                         DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
@@ -979,11 +1030,11 @@ public class UVRefocusEditor : EditorWindow
 
                         if (_sSelectedMesh == t.gameObject)
                         {
-							Vector3 v = DrawVectorInWorldSpace(t, ref pos, ref rot,
-							                                   verts[face], perp, Color.red);
+                            Vector3 v = GetVectorInWorldSpace(t, ref pos, ref rot,
+                                verts[face], perps[face], Color.red);
 							foreach (SceneView sceneView in SceneView.sceneViews)
 							{
-								SceneView.lastActiveSceneView.LookAt(v);
+                                sceneView.LookAt(v);
 							}
                         }
                     }
@@ -1009,12 +1060,13 @@ public class UVRefocusEditor : EditorWindow
                 return verts[index1].x.CompareTo(verts[index2].x);
             });
 
+        /*
         if (sortedFaces.Count > 0)
         {
             int face1 = dictFaces[sortedFaces[0]][0];
             int face2 = dictFaces[sortedFaces[0]][1];
             int face3 = dictFaces[sortedFaces[0]][2];
-            DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face1], GetPerpendicular(verts, face1, face2, face3), Color.red, 1);
+            //DrawVectorInWorldSpace(t, ref pos, ref rot, verts[face1], GetPerpendicular(verts, face1, face2, face3), Color.red, 1);
 
             DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
             DrawPointInWorldSpace(t, ref pos, ref rot, verts[face2], Color.green);
@@ -1023,6 +1075,7 @@ public class UVRefocusEditor : EditorWindow
             DrawPointInWorldSpace(t, ref pos, ref rot, verts[face3], Color.green);
             DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
         }
+        */
 
         #endregion
 
@@ -1289,12 +1342,12 @@ public class UVRefocusEditor : EditorWindow
                         {
                             fingerGroups[sortedFaces[i]] = 0;
                         }
-                        fingers[fingerId] = GetAdjacentFaces(finger, startPos, direction, 
-                            sortedFaces, dictFaces, dictVerteces, verts, colors);
-                        //break;
+                        fingers[fingerId] = GetAdjacentFaces(t, finger, startPos, direction, 
+                            sortedFaces, dictFaces, dictVerteces, triangles, verts, worldVerts, perps, worldPerps, colors);
+                        break;
                     }
 
-                    DisplayFingers(fingers, dictFaces, colors);
+                    //DisplayFingers(fingers, dictFaces, colors);
                 }
             }
         }
@@ -1449,17 +1502,26 @@ public class UVRefocusEditor : EditorWindow
         return result;
     }
 
-    List<int> GetAdjacentFaces(List<int> oldFinger,
+    List<int> GetAdjacentFaces(Transform t,
+        List<int> oldFinger,
         Vector3 startPos,
         Vector3 direction,
         List<int> sortedFaces,
         Dictionary<int, List<int>> dictFaces,
         Dictionary<Vector3, List<int>> dictVerteces,
+        int[] triangles,
         Vector3[] verts,
+        Vector3[] worldVerts,
+        Vector3[] perps,
+        Vector3[] worldPerps,
         Color32[] colors)
     {
+        Vector3 pos = t.position;
+        Quaternion rot = t.rotation;
+
         List<int> result = new List<int>();
 
+        // copy old finger selection to search group
         List<int> searchGroup = new List<int>();
         foreach (int face in oldFinger)
         {
@@ -1474,7 +1536,97 @@ public class UVRefocusEditor : EditorWindow
             result.Add(face);
         }
 
+        //find finger midpoint
+        Vector3 midpoint = Vector3.zero;
+        Vector3 min = Vector3.zero;
+        Vector3 max = Vector3.zero;
+        bool first = true;
+        for (int i = 0; i < triangles.Length; i += 3)
+        {
+            int face1 = triangles[i];
+            int face2 = triangles[i+1];
+            int face3 = triangles[i+2];
+            Vector3 perp = GetPerpendicular(verts, triangles[i], triangles[i + 1], triangles[i + 2]).normalized;
+            colors[triangles[i]] = Color.Lerp(Color.black, Color.white, Vector3.Dot(Vector3.left, perp));
+            colors[triangles[i + 1]] = Color.Lerp(Color.black, Color.white, Vector3.Dot(Vector3.left, perp));
+            colors[triangles[i + 2]] = Color.Lerp(Color.black, Color.white, Vector3.Dot(Vector3.left, perp));
+            if (oldFinger.Contains(face1) ||
+                oldFinger.Contains(face2) ||
+                oldFinger.Contains(face3))
+            {
+                for (int j = 0; j < 3; ++j)
+                {
+                    int k = i + j;
+                    /*
+                    min.x = Mathf.Min(min.x, verts[triangles[index]].x);
+                    min.y = Mathf.Min(min.y, verts[triangles[index]].y);
+                    min.z = Mathf.Min(min.z, verts[triangles[index]].z);
+                    max.x = Mathf.Min(max.x, verts[triangles[index]].x);
+                    max.y = Mathf.Max(max.y, verts[triangles[index]].y);
+                    max.z = Mathf.Max(max.z, verts[triangles[index]].z);
+                    */
+                    //colors[triangles[k]] = GetColorRatio(Mathf.Abs(Vector3.Dot(Vector3.left, (verts[triangles[k]] - startPos).normalized)));
+                    //colors[triangles[k]] = GetColorRatio(Vector3.Dot(Vector3.left, perps[k]));
+                    //colors[triangles[k]] = GetColorRatio(Vector3.Dot(Vector3.left, GetPerpendicular(verts, triangles[i], triangles[i + 1], triangles[i + 2])));
+                    //colors[triangles[k]] = GetColorRatio(Vector3.Dot(Vector3.left, GetPerpendicular(verts, triangles[i], triangles[i + 1], triangles[i + 2])));
+                }
+
+                // show face direction
+                Vector3 a = (verts[face1] + verts[face2] + verts[face3]) / 3f; // center of the face
+                if (first)
+                {
+                    first = false;
+                    min = max = a;
+                }
+                else
+                {
+                    min.x = Mathf.Min(min.x, a.x);
+                    min.y = Mathf.Min(min.y, a.y);
+                    min.z = Mathf.Min(min.z, a.z);
+                    max.x = Mathf.Max(max.x, a.x);
+                    max.y = Mathf.Max(max.y, a.y);
+                    max.z = Mathf.Max(max.z, a.z);
+                }
+                DrawVectorInWorldSpace(t, ref pos, ref rot, a, perps[i], Color.cyan, 0.1f); //show face direction on selected finger verts
+                //DrawPointInWorldSpace(t, ref pos, ref rot, min, Color.red);
+                //DrawPointInWorldSpace(t, ref pos, ref rot, max, Color.red);
+            }
+        }
+        midpoint = (min + max)*0.5f;
+
+        DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (min - midpoint).normalized, Color.magenta, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, min)); //draw from the midpoint to the min point
+        DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (max - midpoint).normalized, Color.yellow, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, max)); //draw from the midpoint to the max point
+        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max);
+
+        // show finger direction
+        //DrawPointInWorldSpace(t, ref pos, ref rot, verts[oldFinger[0]], Color.white);
+        //DrawPointInWorldSpace(t, ref pos, ref rot, midpoint, Color.red);
+        //DrawPointInWorldSpace(t, ref pos, ref rot, min, Color.red);
+        //DrawPointInWorldSpace(t, ref pos, ref rot, max, Color.red);
+
+
+        //find finger midpoint
+        for (int i = 1; i < oldFinger.Count; ++i)
+        {
+            min.x = Mathf.Min(min.x, worldVerts[oldFinger[i]].x);
+            min.y = Mathf.Min(min.y, worldVerts[oldFinger[i]].y);
+            min.z = Mathf.Min(min.z, worldVerts[oldFinger[i]].z);
+            max.x = Mathf.Min(max.x, worldVerts[oldFinger[i]].x);
+            max.y = Mathf.Max(max.y, worldVerts[oldFinger[i]].y);
+            max.z = Mathf.Max(max.z, worldVerts[oldFinger[i]].z);
+        }
+        midpoint = (min + max) * 0.5f;
+
+        /*
+        Vector3 a = worldVerts[oldFinger[0]];
+        Vector3 b = midpoint;
+        _sLines.Add(new KeyValuePair<Vector3, Color32>(a, Color.green));
+        _sLines.Add(new KeyValuePair<Vector3, Color32>(b, Color.white));
+        */
+
         float scale = verts[sortedFaces[0]].x - verts[sortedFaces[sortedFaces.Count - 1]].x;
+
+        //direction = Vector3.left;
 
         for (int searchId = 0; searchId < searchGroup.Count; ++searchId)
         {
@@ -1482,12 +1634,33 @@ public class UVRefocusEditor : EditorWindow
             {
                 int face = dictFaces[searchGroup[searchId]][i];
                 Vector3 v = verts[face];
-                /*
+                ///*
                 foreach (int adjacent in dictVerteces[v])
                 {
-                    colors[adjacent] = GetColorRatio(Vector3.Magnitude((startPos - v)/scale));
+                    //draw based on normalized distance to the start position
+                    //colors[adjacent] = GetColorRatio(Vector3.Magnitude((startPos - v)/scale));
+                    
+                    //ignore Y component and draw based on normalized distance to the start position
+                    //colors[adjacent] = GetColorRatio((startPos.x-v.x)/scale);
+
+                    // show the dot product compared to the start position
+                    Vector3 av = verts[adjacent];
+                    Vector3 ap = perps[adjacent];
+                    //colors[adjacent] = GetColorRatio(Mathf.Abs(Vector3.Dot(direction, (av - startPos).normalized)));
+                    //colors[adjacent] = GetColorRatio(Mathf.Abs(Vector3.Dot(perps[face], perps[adjacent])));
+                    //colors[adjacent] = Color.Lerp(Color.black, Color.red, Vector3.Dot(Vector3.right, worldPerps[adjacent]));
+                    //colors[adjacent] = Color.Lerp(Color.black, Color.red, Vector3.Dot(direction, (av - startPos).normalized));
+                    //colors[adjacent] = Color.Lerp(Color.black, Color.red, Vector3.Dot(Vector3.left, (worldVerts[adjacent] - worldVerts[oldFinger[0]]).normalized));
+                    //colors[adjacent] = Color.Lerp(Color.black, Color.red, Vector3.Dot(Vector3.forward, worldPerps[adjacent]));
+                    //colors[adjacent] = GetColorRatio(Mathf.Abs(Vector2.Dot(new Vector2(direction.x, direction.z), new Vector2(av.x - startPos.x, av.z - startPos.z).normalized)));
+                    //colors[adjacent] = Color.Lerp(Color.black, Color.red, Vector2.Dot(new Vector2(direction.x, direction.z), new Vector2(av.x - startPos.x, av.z - startPos.z).normalized));
+                    if (!searchGroup.Contains(adjacent))
+                    {
+                        searchGroup.Add(adjacent);
+                    }
                 }
-                */
+                //*/
+                continue;
                 if (Vector3.Magnitude((startPos - v) / scale) < 0.2f)
                 {
                     foreach (int adjacent in dictVerteces[v])
@@ -1623,7 +1796,20 @@ public class UVRefocusEditor : EditorWindow
     {
         Vector3 side1 = verts[face2] - verts[face1];
         Vector3 side2 = verts[face3] - verts[face1];
-        return Vector3.Cross(side1, side2);
+        return Vector3.Cross(side1.normalized, side2.normalized);
+    }
+
+    Vector3 GetVectorInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v, Vector3 direction, Color32 color)
+    {
+        Transform temp = t;
+        while (temp)
+        {
+            v.x *= temp.localScale.x;
+            v.y *= temp.localScale.y;
+            v.z *= temp.localScale.z;
+            temp = temp.parent;
+        }
+        return pos + rot * v;
     }
 
     Vector3 DrawVectorInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v, Vector3 direction, Color32 color)
@@ -1642,7 +1828,7 @@ public class UVRefocusEditor : EditorWindow
         return pos + rot*v;
     }
 
-    Vector3 DrawVectorInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v, Vector3 direction, Color32 color, float length)
+    Vector3 GetPointInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v)
     {
         Transform temp = t;
         while (temp)
@@ -1652,25 +1838,71 @@ public class UVRefocusEditor : EditorWindow
             v.z *= temp.localScale.z;
             temp = temp.parent;
         }
-        _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v, color));
-        _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v + rot * direction.normalized * length, color));
+        return pos + rot * v;
+    }
+
+    float GetDistanceInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 point1, Vector3 point2)
+    {
+        Vector3 worldPoint1 = GetPointInWorldSpace(t, ref pos, ref rot, point1);
+        Vector3 worldPoint2 = GetPointInWorldSpace(t, ref pos, ref rot, point2);
+        return Vector3.Distance(worldPoint1, worldPoint2);
+    }
+
+    Vector3 DrawVectorInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v, Vector3 direction, Color32 color, float length)
+    {
+        Vector3 p = GetPointInWorldSpace(t, ref pos, ref rot, v);
+        _sLines.Add(new KeyValuePair<Vector3, Color32>(p, color));
+        _sLines.Add(new KeyValuePair<Vector3, Color32>(p + rot * direction.normalized * length, color));
 
         return pos + rot * v;
     }
 
-    Vector3 DrawPointInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v, Color32 color)
+    void DrawPointInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 v, Color32 color)
     {
-        Transform temp = t;
-        while (temp)
-        {
-            v.x *= temp.localScale.x;
-            v.y *= temp.localScale.y;
-            v.z *= temp.localScale.z;
-            temp = temp.parent;
-        }
-        _sLines.Add(new KeyValuePair<Vector3, Color32>(pos + rot * v, color));
+        _sLines.Add(new KeyValuePair<Vector3, Color32>(GetPointInWorldSpace(t, ref pos, ref rot, v), color));
+    }
 
-        return pos + rot * v;
+
+    void DrawBoundingBoxInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 min, Vector3 max)
+    {
+        Vector3 p1 = new Vector3(min.x, min.y, min.z); //a
+        Vector3 p2 = new Vector3(min.x, max.y, min.z); //-1
+        Vector3 p3 = new Vector3(min.x, min.y, max.z); //a
+        Vector3 p4 = new Vector3(min.x, max.y, max.z); //-3
+        Vector3 p5 = new Vector3(max.x, min.y, min.z); //a
+        Vector3 p6 = new Vector3(max.x, max.y, min.z); //-5
+        Vector3 p7 = new Vector3(max.x, min.y, max.z); //a
+        Vector3 p8 = new Vector3(max.x, max.y, max.z); //-7
+
+        //X
+        DrawPointInWorldSpace(t, ref pos, ref rot, p1, Color.green); //1
+        DrawPointInWorldSpace(t, ref pos, ref rot, p5, Color.green);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p2, Color.green); //2
+        DrawPointInWorldSpace(t, ref pos, ref rot, p6, Color.green);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p3, Color.green); //3
+        DrawPointInWorldSpace(t, ref pos, ref rot, p7, Color.green);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p4, Color.green); //4
+        DrawPointInWorldSpace(t, ref pos, ref rot, p8, Color.green);
+
+        //Y
+        DrawPointInWorldSpace(t, ref pos, ref rot, p1, Color.green); //1
+        DrawPointInWorldSpace(t, ref pos, ref rot, p2, Color.green);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p3, Color.green); //3
+        DrawPointInWorldSpace(t, ref pos, ref rot, p4, Color.green);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p5, Color.green); //5
+        DrawPointInWorldSpace(t, ref pos, ref rot, p6, Color.green);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p7, Color.green); //7
+        DrawPointInWorldSpace(t, ref pos, ref rot, p8, Color.green);
+
+        //Z
+        DrawPointInWorldSpace(t, ref pos, ref rot, p1, Color.green); //1
+        DrawPointInWorldSpace(t, ref pos, ref rot, p3, Color.green);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p2, Color.green); //2
+        DrawPointInWorldSpace(t, ref pos, ref rot, p4, Color.green);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p5, Color.green); //5
+        DrawPointInWorldSpace(t, ref pos, ref rot, p7, Color.green);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p6, Color.green); //6
+        DrawPointInWorldSpace(t, ref pos, ref rot, p8, Color.green);
     }
 
     void HighlightUVs(Mesh mesh, Color32[] colors)
