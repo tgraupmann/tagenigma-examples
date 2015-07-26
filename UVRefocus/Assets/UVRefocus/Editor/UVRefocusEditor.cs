@@ -1581,7 +1581,8 @@ public class UVRefocusEditor : EditorWindow
 
         Vector3 min;
         Vector3 max;
-        GetBoundingBox(triangles, verts, colors, oldFinger, out min, out max);
+        GetBoundingBox(triangles, verts, oldFinger, out min, out max);
+        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
 
         bool first = true;
         for (int i = 0; i < triangles.Length; i += 3)
@@ -1600,14 +1601,6 @@ public class UVRefocusEditor : EditorWindow
                 for (int j = 0; j < 3; ++j)
                 {
                     int k = i + j;
-                    /*
-                    min.x = Mathf.Min(min.x, verts[triangles[index]].x);
-                    min.y = Mathf.Min(min.y, verts[triangles[index]].y);
-                    min.z = Mathf.Min(min.z, verts[triangles[index]].z);
-                    max.x = Mathf.Min(max.x, verts[triangles[index]].x);
-                    max.y = Mathf.Max(max.y, verts[triangles[index]].y);
-                    max.z = Mathf.Max(max.z, verts[triangles[index]].z);
-                    */
                     //colors[triangles[k]] = GetColorRatio(Mathf.Abs(Vector3.Dot(Vector3.left, (verts[triangles[k]] - startPos).normalized)));
                     //colors[triangles[k]] = GetColorRatio(Vector3.Dot(Vector3.left, perps[k]));
                     //colors[triangles[k]] = GetColorRatio(Vector3.Dot(Vector3.left, GetPerpendicular(verts, triangles[i], triangles[i + 1], triangles[i + 2])));
@@ -1616,27 +1609,11 @@ public class UVRefocusEditor : EditorWindow
 
                 // show face direction
                 Vector3 a = (verts[face1] + verts[face2] + verts[face3]) / 3f; // center of the face
-                if (first)
-                {
-                    first = false;
-                    min = max = a;
-                }
-                else
-                {
-                    min.x = Mathf.Min(min.x, a.x);
-                    min.y = Mathf.Min(min.y, a.y);
-                    min.z = Mathf.Min(min.z, a.z);
-                    max.x = Mathf.Max(max.x, a.x);
-                    max.y = Mathf.Max(max.y, a.y);
-                    max.z = Mathf.Max(max.z, a.z);
-                }
                 DrawVectorInWorldSpace(t, ref pos, ref rot, a, perps[i], Color.cyan, 0.1f); //show face direction on selected finger verts
                 //DrawPointInWorldSpace(t, ref pos, ref rot, min, Color.red);
                 //DrawPointInWorldSpace(t, ref pos, ref rot, max, Color.red);
             }
         }
-
-        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
 
         Vector3 midpoint = (min + max)*0.5f;
         DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (min - midpoint).normalized, Color.magenta, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, min)); //draw from the midpoint to the min point
@@ -1890,7 +1867,8 @@ public class UVRefocusEditor : EditorWindow
         _sLines.Add(new KeyValuePair<Vector3, Color32>(GetPointInWorldSpace(t, ref pos, ref rot, v), color));
     }
 
-    void GetBoundingBox(int[] triangles, Vector3[] verts, Color32[] colors, List<int> subset, out Vector3 min, out Vector3 max)
+    private void GetBoundingBox(int[] triangles, Vector3[] verts, List<int> subset, out Vector3 min,
+        out Vector3 max)
     {
         min = Vector3.zero;
         max = Vector3.zero;
@@ -1906,25 +1884,21 @@ public class UVRefocusEditor : EditorWindow
             {
                 continue;
             }
-            if (colors[face1] != Color.black ||
-                colors[face2] != Color.black ||
-                colors[face3] != Color.black)
+
+            Vector3 facePoint = (verts[face1] + verts[face2] + verts[face3])/3f; // center of the face
+            if (first)
             {
-                Vector3 facePoint = (verts[face1] + verts[face2] + verts[face3]) / 3f; // center of the face
-                if (first)
-                {
-                    first = false;
-                    min = max = facePoint;
-                }
-                else
-                {
-                    min.x = Mathf.Min(min.x, facePoint.x);
-                    min.y = Mathf.Min(min.y, facePoint.y);
-                    min.z = Mathf.Min(min.z, facePoint.z);
-                    max.x = Mathf.Max(max.x, facePoint.x);
-                    max.y = Mathf.Max(max.y, facePoint.y);
-                    max.z = Mathf.Max(max.z, facePoint.z);
-                }
+                first = false;
+                min = max = facePoint;
+            }
+            else
+            {
+                min.x = Mathf.Min(min.x, facePoint.x);
+                min.y = Mathf.Min(min.y, facePoint.y);
+                min.z = Mathf.Min(min.z, facePoint.z);
+                max.x = Mathf.Max(max.x, facePoint.x);
+                max.y = Mathf.Max(max.y, facePoint.y);
+                max.z = Mathf.Max(max.z, facePoint.z);
             }
         }
     }
