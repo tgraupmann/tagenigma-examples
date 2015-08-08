@@ -1369,17 +1369,7 @@ public class UVRefocusEditor : EditorWindow
                         //find finger midpoint
                         Vector3 startPos = verts[finger[0]];
                         Vector3 midpoint = Vector3.zero;
-                        min = startPos;
-                        max = startPos;
-                        for (int i = 1; i < finger.Count; ++i)
-                        {
-                            min.x = Mathf.Min(min.x, verts[finger[i]].x);
-                            min.y = Mathf.Min(min.y, verts[finger[i]].y);
-                            min.z = Mathf.Min(min.z, verts[finger[i]].z);
-                            max.x = Mathf.Min(max.x, verts[finger[i]].x);
-                            max.y = Mathf.Max(max.y, verts[finger[i]].y);
-                            max.z = Mathf.Max(max.z, verts[finger[i]].z);
-                        }
+                        GetBoundingBox(triangles, verts, finger, out min, out max);
                         midpoint = (min + max)*0.5f;
 
                         if (_mUpdateSceneCamera &&
