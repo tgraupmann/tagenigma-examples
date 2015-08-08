@@ -252,6 +252,29 @@ public class UVRefocusEditor : EditorWindow
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
+            if (GUILayout.Button("L-Pinky"))
+            {
+                Find(SearchLocations.LeftPinky);
+            }
+            if (GUILayout.Button("L-Ring"))
+            {
+                Find(SearchLocations.LeftRing);
+            }
+            if (GUILayout.Button("L-Middle"))
+            {
+                Find(SearchLocations.LeftMiddle);
+            }
+            if (GUILayout.Button("L-Index"))
+            {
+                Find(SearchLocations.LeftIndex);
+            }
+            if (GUILayout.Button("L-Thumb"))
+            {
+                Find(SearchLocations.LeftThumb);
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button("L-Foot"))
             {
                 Find(SearchLocations.LeftFoot);
@@ -649,6 +672,11 @@ public class UVRefocusEditor : EditorWindow
                     }
                 }
                 break;
+            case SearchLocations.LeftPinky:
+            case SearchLocations.LeftRing:
+            case SearchLocations.LeftMiddle:
+            case SearchLocations.LeftIndex:
+            case SearchLocations.LeftThumb:
             case SearchLocations.LeftHand:
                 thresholdLeft = Mathf.Lerp(_mBoundsMin.x, _mBoundsMax.x, 0.1f);
                 thresholdUpper = Mathf.Lerp(_mBoundsMin.y, _mBoundsMax.y, 0.85f);
@@ -730,6 +758,7 @@ public class UVRefocusEditor : EditorWindow
         Vector3 max;
         GetBoundingBox(triangles, verts, colors, out min, out max);
         DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
+        DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.red);
 
         #endregion
 
@@ -800,7 +829,7 @@ public class UVRefocusEditor : EditorWindow
             HighlightFaces(t, triangles, verts, perps, colors);
         }
 
-        FindRightFingers(t, triangles, verts, worldVerts, perps, worldPerps, colors);
+        FindRightFingers(search, t, triangles, verts, worldVerts, perps, worldPerps, colors);
 
         if (_sSelectedMesh == t.gameObject &&
             _sInstanceUVMap)
@@ -969,7 +998,7 @@ public class UVRefocusEditor : EditorWindow
         }
     }
 
-    void FindRightFingers(Transform t, int[] triangles, Vector3[] verts, Vector3[] worldVerts, Vector3[] perps, Vector3[] worldPerps, Color32[] colors)
+    void FindRightFingers(SearchLocations search, Transform t, int[] triangles, Vector3[] verts, Vector3[] worldVerts, Vector3[] perps, Vector3[] worldPerps, Color32[] colors)
     {
         Vector3 pos = t.position;
         Quaternion rot = t.rotation;
@@ -1003,34 +1032,9 @@ public class UVRefocusEditor : EditorWindow
 
         #endregion
 
-        #region calculate selected bounding box
-
-        //find the bounding box
-        Vector3 boundsMin = Vector3.zero;
-        Vector3 boundsMax = Vector3.zero;
-        int index = 0;
-        foreach (KeyValuePair<int, List<int>> kvp in dictFaces)
-        {
-            int face = kvp.Key;
-            if (index == 0)
-            {
-                boundsMin = verts[face];
-                boundsMax = verts[face];
-            }
-            else
-            {
-                boundsMin.x = Mathf.Min(boundsMin.x, verts[face].x);
-                boundsMin.y = Mathf.Min(boundsMin.y, verts[face].y);
-                boundsMin.z = Mathf.Min(boundsMin.z, verts[face].z);
-
-                boundsMax.x = Mathf.Max(boundsMax.x, verts[face].x);
-                boundsMax.y = Mathf.Max(boundsMax.y, verts[face].y);
-                boundsMax.z = Mathf.Max(boundsMax.z, verts[face].z);
-            }
-            ++index;
-        }
-
-        #endregion
+        Vector3 min;
+        Vector3 max;
+        GetBoundingBox(triangles, verts, colors, out min, out max);
 
         #region Show right-most edge
 
@@ -1040,7 +1044,7 @@ public class UVRefocusEditor : EditorWindow
             foreach (KeyValuePair<int, List<int>> kvp in dictFaces)
             {
                 int face = kvp.Key;
-                if (verts[face].x == boundsMin.x)
+                if (verts[face].x == min.x)
                 {
                     if (!visited.Contains(face))
                     {
@@ -1070,7 +1074,8 @@ public class UVRefocusEditor : EditorWindow
                          */
 
                         if (_mUpdateSceneCamera &&
-                            _sSelectedMesh == t.gameObject)
+                            _sSelectedMesh == t.gameObject &&
+                            search == SearchLocations.LeftHand)
                         {
                             Vector3 v = GetVectorInWorldSpace(t, ref pos, ref rot,
                                 verts[face], perps[face], Color.red);
@@ -1290,6 +1295,7 @@ public class UVRefocusEditor : EditorWindow
             Dictionary<int, int> fingerGroups = new Dictionary<int, int>();
             foreach (KeyValuePair<int, int> kvp in marchCounts)
             {
+                //dont base this just on ratio
                 float ratio1 = kvp.Value / (float)order;
                 if (ratio1 > 0.5f)
                 {
@@ -1363,8 +1369,8 @@ public class UVRefocusEditor : EditorWindow
                         //find finger midpoint
                         Vector3 startPos = verts[finger[0]];
                         Vector3 midpoint = Vector3.zero;
-                        Vector3 min = startPos;
-                        Vector3 max = startPos;
+                        min = startPos;
+                        max = startPos;
                         for (int i = 1; i < finger.Count; ++i)
                         {
                             min.x = Mathf.Min(min.x, verts[finger[i]].x);
@@ -1376,11 +1382,49 @@ public class UVRefocusEditor : EditorWindow
                         }
                         midpoint = (min + max)*0.5f;
 
+                        if (_mUpdateSceneCamera &&
+                            _sSelectedMesh == t.gameObject)
+                        {
+                            Vector3 v = Vector3.zero;
+                            if (search == SearchLocations.LeftPinky &&
+                                fingerId == 0)
+                            {
+                                v = GetPointInWorldSpace(t, ref pos, ref rot, midpoint);
+                            }
+                            if (search == SearchLocations.LeftRing &&
+                                fingerId == 1)
+                            {
+                                v = GetPointInWorldSpace(t, ref pos, ref rot, midpoint);
+                            }
+                            if (search == SearchLocations.LeftMiddle &&
+                                fingerId == 2)
+                            {
+                                v = GetPointInWorldSpace(t, ref pos, ref rot, midpoint);
+                            }
+                            if (search == SearchLocations.LeftIndex &&
+                                fingerId == 3)
+                            {
+                                v = GetPointInWorldSpace(t, ref pos, ref rot, midpoint);
+                            }
+                            if (search == SearchLocations.LeftThumb &&
+                                fingerId == 4)
+                            {
+                                v = GetPointInWorldSpace(t, ref pos, ref rot, midpoint);
+                            }
+                            if (v != Vector3.zero)
+                            {
+                                foreach (SceneView sceneView in SceneView.sceneViews)
+                                {
+                                    sceneView.LookAt(v);
+                                }
+                            }
+                        }
+
                         //find finger direction
                         Vector3 direction = (midpoint - startPos).normalized;
 
                         fingerGroups = new Dictionary<int, int>();
-                        for (int i = 0; i < sortedFaces.Count/3; ++i)
+                        for (int i = 0; i < sortedFaces.Count/5; ++i)
                         {
                             fingerGroups[sortedFaces[i]] = 0;
                         }
@@ -1736,11 +1780,6 @@ public class UVRefocusEditor : EditorWindow
     {
 		//Debug.Log("March: "+march);
 
-		// the selected face
-		int face1 = dictFaces[march][0];
-		int face2 = dictFaces[march][1];
-		int face3 = dictFaces[march][2];
-
 		for (int i = 0; i < 3; ++i)
 		{
 			int face = dictFaces[march][i];
@@ -1976,6 +2015,27 @@ public class UVRefocusEditor : EditorWindow
         DrawPointInWorldSpace(t, ref pos, ref rot, p7, color);
         DrawPointInWorldSpace(t, ref pos, ref rot, p6, color); //6
         DrawPointInWorldSpace(t, ref pos, ref rot, p8, color);
+    }
+
+    void DrawBoundingXInWorldSpace(Transform t, ref Vector3 pos, ref Quaternion rot, Vector3 min, Vector3 max, Color32 color)
+    {
+        Vector3 p1 = new Vector3(min.x, min.y, min.z); //a
+        Vector3 p2 = new Vector3(min.x, max.y, min.z); //a
+        Vector3 p3 = new Vector3(min.x, min.y, max.z); //a
+        Vector3 p4 = new Vector3(min.x, max.y, max.z); //a
+        Vector3 p5 = new Vector3(max.x, min.y, min.z); //-4
+        Vector3 p6 = new Vector3(max.x, max.y, min.z); //-3
+        Vector3 p7 = new Vector3(max.x, min.y, max.z); //-2
+        Vector3 p8 = new Vector3(max.x, max.y, max.z); //-1
+
+        DrawPointInWorldSpace(t, ref pos, ref rot, p1, color); //1
+        DrawPointInWorldSpace(t, ref pos, ref rot, p8, color);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p2, color); //2
+        DrawPointInWorldSpace(t, ref pos, ref rot, p7, color);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p3, color); //3
+        DrawPointInWorldSpace(t, ref pos, ref rot, p6, color);
+        DrawPointInWorldSpace(t, ref pos, ref rot, p4, color); //4
+        DrawPointInWorldSpace(t, ref pos, ref rot, p5, color);
     }
 
     void HighlightUVs(Mesh mesh, Color32[] colors)
