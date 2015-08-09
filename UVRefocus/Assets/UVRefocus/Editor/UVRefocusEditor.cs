@@ -99,6 +99,9 @@ public class UVRefocusEditor : EditorWindow
 
     private void OnSceneGUI(SceneView sceneView)
     {
+        int oldFontSize = GUI.skin.label.fontSize;
+        Color oldTextColor = GUI.skin.label.normal.textColor;
+        TextAnchor oldAlignment = GUI.skin.label.alignment;
         GUI.skin.label.fontSize = 48;
         GUI.skin.label.normal.textColor = Color.magenta;
         GUI.skin.label.alignment = TextAnchor.MiddleCenter;
@@ -111,6 +114,9 @@ public class UVRefocusEditor : EditorWindow
                 Handles.Label(kvp.Key, kvp.Value);
             }
         }
+        GUI.skin.label.fontSize = oldFontSize;
+        GUI.skin.label.normal.textColor = oldTextColor;
+        GUI.skin.label.alignment = oldAlignment;
     }
 
     /// <summary>
@@ -337,13 +343,44 @@ public class UVRefocusEditor : EditorWindow
                 continue;
             }
             int instanceId = EditorPrefs.GetInt(key);
-            _mMeshObjects[index] = (GameObject) EditorUtility.InstanceIDToObject(instanceId);
+            if (EditorUtility.InstanceIDToObject(instanceId))
+            {
+                if (EditorUtility.InstanceIDToObject(instanceId) is GameObject)
+                {
+                    _mMeshObjects[index] = (GameObject)EditorUtility.InstanceIDToObject(instanceId);
+                }
+                else
+                {
+                    _mMeshObjects[index] = null;
+                }
+            }
+            else
+            {
+                _mMeshObjects[index] = null;
+            }
+            
         }
 
         if (EditorPrefs.HasKey("SelectedMesh"))
         {
             int instanceId = EditorPrefs.GetInt("SelectedMesh");
-            _sSelectedMesh = (GameObject) EditorUtility.InstanceIDToObject(instanceId);
+            if (EditorUtility.InstanceIDToObject(instanceId))
+            {
+                if (EditorUtility.InstanceIDToObject(instanceId) is GameObject)
+                {
+                    _sSelectedMesh = (GameObject) EditorUtility.InstanceIDToObject(instanceId);
+                }
+                else
+                {
+                    _sSelectedMesh = null;
+                }
+
+            }
+            else
+            {
+                _sSelectedMesh = null;
+            }
+            
         }
         else
         {
@@ -777,7 +814,7 @@ public class UVRefocusEditor : EditorWindow
         Vector3 max;
         GetBoundingBox(triangles, verts, colors, out min, out max);
         DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
-        DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
+        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
 
         #endregion
 
@@ -1639,19 +1676,26 @@ public class UVRefocusEditor : EditorWindow
         DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         Vector3 midpoint = GetMidpoint(min, max);
 
+        if (_sSelectedMesh == t.gameObject)
+        {
+            Vector3 texPos = new Vector3(min.x, midpoint.y, midpoint.z);
+            _mSceneText.Add(new KeyValuePair<Vector3, string>(GetPointInWorldSpace(t, ref pos, ref rot, texPos),
+                fingerIndex.ToString()));
+        }
+
         //DrawPointInWorldSpace(t, ref pos, ref rot, verts[oldFinger[0]], Color.red);
         //DrawPointInWorldSpace(t, ref pos, ref rot, midpoint, Color.red);
         //DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (min - midpoint).normalized, Color.magenta, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, min)); //draw from the midpoint to the min point
         //DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (max - midpoint).normalized, Color.yellow, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, max)); //draw from the midpoint to the max point
 
         GetBoundingBox(triangles, verts, oldFinger, 0, oldFinger.Count/2, out min, out max);
-        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
-        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
+        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         Vector3 midpoint1 = GetMidpoint(min, max);
 
         GetBoundingBox(triangles, verts, oldFinger, oldFinger.Count / 2, oldFinger.Count -1, out min, out max);
-        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
-        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
+        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         Vector3 midpoint2 = GetMidpoint(min, max);
 
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint1, Color.red);
@@ -1686,9 +1730,6 @@ public class UVRefocusEditor : EditorWindow
                 //DrawPointInWorldSpace(t, ref pos, ref rot, max, Color.red);
             }
         }
-
-        Vector3 texPos = new Vector3(min.x, midpoint.y, midpoint.z);
-        _mSceneText.Add(new KeyValuePair<Vector3, string>(GetPointInWorldSpace(t, ref pos, ref rot, texPos), fingerIndex.ToString()));
 
         // show finger direction
         //DrawPointInWorldSpace(t, ref pos, ref rot, verts[oldFinger[0]], Color.white);
