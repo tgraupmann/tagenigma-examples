@@ -113,6 +113,9 @@ public class UVRefocusEditor : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Display editor panel
+    /// </summary>
     private void OnGUI()
     {
         if (_mCompileDetected)
@@ -149,7 +152,7 @@ public class UVRefocusEditor : EditorWindow
             }
             for (int index = 0; index < count && count < 100; ++index)
             {
-                GUILayout.BeginHorizontal();
+                GUILayout.BeginHorizontal(GUILayout.Width(position.width));
                 bool flag = GUILayout.Toggle(_sSelectedMesh == _mMeshObjects[index], string.Empty, GUILayout.Width(10));
                 _mMeshObjects[index] =
                     (GameObject)
@@ -207,7 +210,7 @@ public class UVRefocusEditor : EditorWindow
 
             GUILayout.Label(string.Empty);
 
-            GUILayout.BeginHorizontal();
+            GUILayout.BeginHorizontal(GUILayout.Width(position.width));
             if (GUILayout.Button("L-Eye"))
             {
                 Find(SearchLocations.LeftEye);
@@ -232,7 +235,7 @@ public class UVRefocusEditor : EditorWindow
                 Find(SearchLocations.Mouth);
             }
 
-            GUILayout.BeginHorizontal();
+            GUILayout.BeginHorizontal(GUILayout.Width(position.width));
             if (GUILayout.Button("L-Hand"))
             {
                 Find(SearchLocations.LeftHand);
@@ -251,7 +254,7 @@ public class UVRefocusEditor : EditorWindow
             }
             GUILayout.EndHorizontal();
 
-            GUILayout.BeginHorizontal();
+            GUILayout.BeginHorizontal(GUILayout.Width(position.width));
             if (GUILayout.Button("L-Pinky"))
             {
                 Find(SearchLocations.LeftPinky);
@@ -274,7 +277,7 @@ public class UVRefocusEditor : EditorWindow
             }
             GUILayout.EndHorizontal();
 
-            GUILayout.BeginHorizontal();
+            GUILayout.BeginHorizontal(GUILayout.Width(position.width));
             if (GUILayout.Button("L-Foot"))
             {
                 Find(SearchLocations.LeftFoot);
@@ -311,6 +314,7 @@ public class UVRefocusEditor : EditorWindow
                 GUILayout.Label(_sInstanceUVMap);
             }
 
+            /*
             foreach (SearchLocations search in Enum.GetValues(typeof (SearchLocations)))
             {
                 if (GUILayout.Button(string.Format("{0}", search)))
@@ -318,6 +322,7 @@ public class UVRefocusEditor : EditorWindow
                     Find(search);
                 }
             }
+            */
         }
     }
 
@@ -348,7 +353,21 @@ public class UVRefocusEditor : EditorWindow
         if (EditorPrefs.HasKey("UVTex"))
         {
             int instanceId = EditorPrefs.GetInt("UVTex");
-            _sReferenceUVMap = (Texture2D) EditorUtility.InstanceIDToObject(instanceId);
+            if (EditorUtility.InstanceIDToObject(instanceId))
+            {
+                if (EditorUtility.InstanceIDToObject(instanceId) is Texture2D)
+                {
+                    _sReferenceUVMap = (Texture2D) EditorUtility.InstanceIDToObject(instanceId);
+                }
+                else
+                {
+                    _sReferenceUVMap = null;
+                }
+            }
+            else
+            {
+                _sReferenceUVMap = null;
+            }
         }
     }
 
@@ -1617,8 +1636,14 @@ public class UVRefocusEditor : EditorWindow
         Vector3 max;
         GetBoundingBox(triangles, verts, oldFinger, out min, out max);
         DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
+        
+        Vector3 midpoint = GetMidpoint(min, max);
+        DrawPointInWorldSpace(t, ref pos, ref rot, verts[oldFinger[0]], Color.red);
+        DrawPointInWorldSpace(t, ref pos, ref rot, midpoint, Color.cyan);
+        //DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (min - midpoint).normalized, Color.magenta, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, min)); //draw from the midpoint to the min point
+        //DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (max - midpoint).normalized, Color.yellow, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, max)); //draw from the midpoint to the max point
 
-        bool first = true;
         for (int i = 0; i < triangles.Length; i += 3)
         {
             int face1 = triangles[i];
@@ -1648,10 +1673,6 @@ public class UVRefocusEditor : EditorWindow
                 //DrawPointInWorldSpace(t, ref pos, ref rot, max, Color.red);
             }
         }
-
-        Vector3 midpoint = (min + max)*0.5f;
-        DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (min - midpoint).normalized, Color.magenta, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, min)); //draw from the midpoint to the min point
-        DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (max - midpoint).normalized, Color.yellow, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, max)); //draw from the midpoint to the max point
 
         Vector3 texPos = new Vector3(min.x, midpoint.y, midpoint.z);
         _mSceneText.Add(new KeyValuePair<Vector3, string>(GetPointInWorldSpace(t, ref pos, ref rot, texPos), fingerIndex.ToString()));
@@ -2026,6 +2047,11 @@ public class UVRefocusEditor : EditorWindow
         DrawPointInWorldSpace(t, ref pos, ref rot, p6, color);
         DrawPointInWorldSpace(t, ref pos, ref rot, p4, color); //4
         DrawPointInWorldSpace(t, ref pos, ref rot, p5, color);
+    }
+
+    Vector3 GetMidpoint(Vector3 a, Vector3 b)
+    {
+        return (a + b) * 0.5f;
     }
 
     void HighlightUVs(Mesh mesh, Color32[] colors)
