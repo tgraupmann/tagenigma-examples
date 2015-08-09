@@ -777,7 +777,7 @@ public class UVRefocusEditor : EditorWindow
         Vector3 max;
         GetBoundingBox(triangles, verts, colors, out min, out max);
         DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
-        DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.red);
+        DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
 
         #endregion
 
@@ -1635,14 +1635,27 @@ public class UVRefocusEditor : EditorWindow
         Vector3 min;
         Vector3 max;
         GetBoundingBox(triangles, verts, oldFinger, out min, out max);
-        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
-        
         Vector3 midpoint = GetMidpoint(min, max);
-        DrawPointInWorldSpace(t, ref pos, ref rot, verts[oldFinger[0]], Color.red);
-        DrawPointInWorldSpace(t, ref pos, ref rot, midpoint, Color.cyan);
+
+        //DrawPointInWorldSpace(t, ref pos, ref rot, verts[oldFinger[0]], Color.red);
+        //DrawPointInWorldSpace(t, ref pos, ref rot, midpoint, Color.red);
         //DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (min - midpoint).normalized, Color.magenta, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, min)); //draw from the midpoint to the min point
         //DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (max - midpoint).normalized, Color.yellow, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, max)); //draw from the midpoint to the max point
+
+        GetBoundingBox(triangles, verts, oldFinger, 0, oldFinger.Count/2, out min, out max);
+        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        Vector3 midpoint1 = GetMidpoint(min, max);
+
+        GetBoundingBox(triangles, verts, oldFinger, oldFinger.Count / 2, oldFinger.Count -1, out min, out max);
+        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        Vector3 midpoint2 = GetMidpoint(min, max);
+
+        DrawPointInWorldSpace(t, ref pos, ref rot, midpoint1, Color.red);
+        DrawPointInWorldSpace(t, ref pos, ref rot, midpoint2, Color.red);
 
         for (int i = 0; i < triangles.Length; i += 3)
         {
@@ -1936,6 +1949,49 @@ public class UVRefocusEditor : EditorWindow
             }
 
             Vector3 facePoint = (verts[face1] + verts[face2] + verts[face3])/3f; // center of the face
+            if (first)
+            {
+                first = false;
+                min = max = facePoint;
+            }
+            else
+            {
+                min.x = Mathf.Min(min.x, facePoint.x);
+                min.y = Mathf.Min(min.y, facePoint.y);
+                min.z = Mathf.Min(min.z, facePoint.z);
+                max.x = Mathf.Max(max.x, facePoint.x);
+                max.y = Mathf.Max(max.y, facePoint.y);
+                max.z = Mathf.Max(max.z, facePoint.z);
+            }
+        }
+    }
+
+    private void GetBoundingBox(int[] triangles, Vector3[] verts, List<int> subset, int start, int end, out Vector3 min,
+        out Vector3 max)
+    {
+        min = Vector3.zero;
+        max = Vector3.zero;
+        bool first = true;
+        for (int i = 0; i < triangles.Length; i += 3)
+        {
+            int face1 = triangles[i];
+            int face2 = triangles[i + 1];
+            int face3 = triangles[i + 2];
+            if (!subset.Contains(face1) &&
+                !subset.Contains(face2) &&
+                !subset.Contains(face3))
+            {
+                continue;
+            }
+
+            if ((subset.IndexOf(face1) < start || subset.IndexOf(face1) >= end) &&
+                (subset.IndexOf(face2) < start || subset.IndexOf(face2) >= end) &&
+                (subset.IndexOf(face3) < start || subset.IndexOf(face3) >= end))
+            {
+                continue;
+            }
+
+            Vector3 facePoint = (verts[face1] + verts[face2] + verts[face3]) / 3f; // center of the face
             if (first)
             {
                 first = false;
