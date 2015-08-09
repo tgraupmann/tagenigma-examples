@@ -1088,9 +1088,9 @@ public class UVRefocusEditor : EditorWindow
 
         #endregion
 
-        Vector3 min;
-        Vector3 max;
-        GetBoundingBox(triangles, verts, colors, out min, out max);
+        Vector3 handMin;
+        Vector3 handMax;
+        GetBoundingBox(triangles, verts, colors, out handMin, out handMax);
 
         #region Show right-most edge
 
@@ -1100,35 +1100,11 @@ public class UVRefocusEditor : EditorWindow
             foreach (KeyValuePair<int, List<int>> kvp in dictFaces)
             {
                 int face = kvp.Key;
-                if (verts[face].x == min.x)
+                if (verts[face].x == handMin.x)
                 {
                     if (!visited.Contains(face))
                     {
                         visited.Add(face);
-                        int face1 = dictFaces[face][0];
-                        int face2 = dictFaces[face][1];
-                        int face3 = dictFaces[face][2];
-                        /*
-                        Vector3 v = (verts[face1] + verts[face2] + verts[face3]) / 3f;
-                        if (Vector3.Dot(Vector3.right, perps[face]) > 0f)
-                        {
-                            DrawVectorInWorldSpace(t, ref pos, ref rot, v, -perps[face], Color.red);
-                        }
-                        else
-                        {
-                            DrawVectorInWorldSpace(t, ref pos, ref rot, v, perps[face], Color.red);
-                        }
-                        */
-
-                        /*
-                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
-                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face2], Color.green);
-                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face2], Color.green);
-                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face3], Color.green);
-                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face3], Color.green);
-                        DrawPointInWorldSpace(t, ref pos, ref rot, verts[face1], Color.green);
-                         */
-
                         if (_mUpdateSceneCamera &&
                             _sSelectedMesh == t.gameObject &&
                             search == SearchLocations.LeftHand)
@@ -1140,6 +1116,7 @@ public class UVRefocusEditor : EditorWindow
                                 sceneView.LookAt(v);
 							}
                         }
+                        break;
                     }
                 }
             }
@@ -1425,6 +1402,8 @@ public class UVRefocusEditor : EditorWindow
                         //find finger midpoint
                         Vector3 startPos = verts[finger[0]];
                         Vector3 midpoint = Vector3.zero;
+                        Vector3 min = Vector3.zero;
+                        Vector3 max = Vector3.zero;
                         GetBoundingBox(triangles, verts, finger, out min, out max);
                         midpoint = (min + max)*0.5f;
 
@@ -1474,8 +1453,8 @@ public class UVRefocusEditor : EditorWindow
                         {
                             fingerGroups[sortedFaces[i]] = 0;
                         }
-                        fingers[fingerId] = GetAdjacentFaces(fingerId, t, finger, startPos, direction, 
-                            sortedFaces, dictFaces, dictVerteces, triangles, verts, worldVerts, perps, worldPerps, colors);
+                        fingers[fingerId] = GetAdjacentFacesExtend(fingerId, t, finger, startPos, direction, 
+                            sortedFaces, dictFaces, dictVerteces, triangles, verts, worldVerts, perps, worldPerps, colors, handMin, handMax);
                         //break;
                     }
 
@@ -1583,7 +1562,19 @@ public class UVRefocusEditor : EditorWindow
         }
     }
 
-    List<int> GetAdjacentFaces(Dictionary<int, int> group, 
+    /// <summary>
+    /// Macro group is the entire hand
+    /// As the adjacent faces are detected, remove them from the macro group
+    /// Each search group becomes a finger which is removed from the macro group
+    /// </summary>
+    /// <param name="macroGroup"></param>
+    /// <param name="searchGroup"></param>
+    /// <param name="sortedFaces"></param>
+    /// <param name="dictFaces"></param>
+    /// <param name="dictVerteces"></param>
+    /// <param name="verts"></param>
+    /// <returns></returns>
+    List<int> GetAdjacentFaces(Dictionary<int, int> macroGroup, 
         List<int> searchGroup,
         List<int> sortedFaces,
         Dictionary<int, List<int>> dictFaces,
@@ -1600,7 +1591,7 @@ public class UVRefocusEditor : EditorWindow
                 Vector3 v = verts[face];
                 foreach (int adjacent in dictVerteces[v])
                 {
-                    if (group.ContainsKey(adjacent) &&
+                    if (macroGroup.ContainsKey(adjacent) &&
                         !searchGroup.Contains(adjacent))
                     {
                         searchGroup.Add(adjacent);
@@ -1617,9 +1608,9 @@ public class UVRefocusEditor : EditorWindow
         #region remove search group from group
         foreach (int face in searchGroup)
         {
-            if (group.ContainsKey(face))
+            if (macroGroup.ContainsKey(face))
             {
-                group.Remove(face);
+                macroGroup.Remove(face);
             }
         }
         #endregion
@@ -1634,7 +1625,7 @@ public class UVRefocusEditor : EditorWindow
         return result;
     }
 
-    List<int> GetAdjacentFaces(int fingerIndex,
+    List<int> GetAdjacentFacesExtend(int fingerIndex,
         Transform t,
         List<int> oldFinger,
         Vector3 startPos,
@@ -1647,7 +1638,9 @@ public class UVRefocusEditor : EditorWindow
         Vector3[] worldVerts,
         Vector3[] perps,
         Vector3[] worldPerps,
-        Color32[] colors)
+        Color32[] colors,
+        Vector3 handMin,
+        Vector3 handMax)
     {
         Vector3 pos = t.position;
         Quaternion rot = t.rotation;
@@ -1673,7 +1666,7 @@ public class UVRefocusEditor : EditorWindow
         Vector3 max;
         GetBoundingBox(triangles, verts, oldFinger, out min, out max);
         DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
-        DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
+        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         Vector3 midpoint = GetMidpoint(min, max);
 
         if (_sSelectedMesh == t.gameObject)
@@ -1689,17 +1682,47 @@ public class UVRefocusEditor : EditorWindow
         //DrawVectorInWorldSpace(t, ref pos, ref rot, midpoint, (max - midpoint).normalized, Color.yellow, GetDistanceInWorldSpace(t, ref pos, ref rot, midpoint, max)); //draw from the midpoint to the max point
 
         GetBoundingBox(triangles, verts, oldFinger, 0, oldFinger.Count/2, out min, out max);
-        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
+        //DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         Vector3 midpoint1 = GetMidpoint(min, max);
 
         GetBoundingBox(triangles, verts, oldFinger, oldFinger.Count / 2, oldFinger.Count -1, out min, out max);
-        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
+        //DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         Vector3 midpoint2 = GetMidpoint(min, max);
 
+        //DrawPointInWorldSpace(t, ref pos, ref rot, midpoint1, Color.red);
+        //DrawPointInWorldSpace(t, ref pos, ref rot, midpoint2, Color.red);
+
+        float someDistance = Vector3.Distance(handMin, handMax) * 0.1f;
+
+        //extend some by distance
+        for (int searchId = 0; searchId < searchGroup.Count; ++searchId)
+        {
+            for (int i = 0; i < 3; ++i)
+            {
+                int face = dictFaces[searchGroup[searchId]][i];
+                Vector3 v = verts[face];
+                if (Vector3.Distance(startPos, v) < someDistance)
+                {
+                    foreach (int adjacent in dictVerteces[v])
+                    {
+                        if (!searchGroup.Contains(adjacent))
+                        {
+                            searchGroup.Add(adjacent);
+                        }
+                    }
+                }
+            }
+        }
+
+        GetBoundingBox(triangles, verts, searchGroup, out min, out max);
+        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+
+        Vector3 midpoint3 = GetMidpoint(min, max);
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint1, Color.red);
-        DrawPointInWorldSpace(t, ref pos, ref rot, midpoint2, Color.red);
+        DrawPointInWorldSpace(t, ref pos, ref rot, midpoint3, Color.red);
 
         for (int i = 0; i < triangles.Length; i += 3)
         {
