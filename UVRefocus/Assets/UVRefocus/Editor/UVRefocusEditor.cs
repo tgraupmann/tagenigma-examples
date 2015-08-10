@@ -1686,43 +1686,43 @@ public class UVRefocusEditor : EditorWindow
         //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         Vector3 midpoint1 = GetMidpoint(min, max);
 
+        /*
         GetBoundingBox(triangles, verts, oldFinger, oldFinger.Count / 2, oldFinger.Count -1, out min, out max);
         //DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.yellow);
         Vector3 midpoint2 = GetMidpoint(min, max);
+         */
 
         //DrawPointInWorldSpace(t, ref pos, ref rot, midpoint1, Color.red);
         //DrawPointInWorldSpace(t, ref pos, ref rot, midpoint2, Color.red);
 
+        //extend some by distance
         float someDistance = Vector3.Distance(handMin, handMax) * 0.1f;
 
-        //extend some by distance
-        for (int searchId = 0; searchId < searchGroup.Count; ++searchId)
+        if (searchGroup.Count > 50)
         {
-            for (int i = 0; i < 3; ++i)
-            {
-                int face = dictFaces[searchGroup[searchId]][i];
-                Vector3 v = verts[face];
-                if (Vector3.Distance(startPos, v) < someDistance)
-                {
-                    foreach (int adjacent in dictVerteces[v])
-                    {
-                        if (!searchGroup.Contains(adjacent))
-                        {
-                            searchGroup.Add(adjacent);
-                        }
-                    }
-                }
-            }
+            searchGroup.RemoveRange(50, searchGroup.Count - 50);
         }
 
-        GetBoundingBox(triangles, verts, searchGroup, out min, out max);
+        int oldCount = searchGroup.Count - 1;
+        ExpandSearchGroup(midpoint1, someDistance, ref searchGroup, verts, dictFaces, dictVerteces);
+        GetBoundingBox(triangles, verts, searchGroup, oldCount, searchGroup.Count, out min, out max);
         DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
         //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
-
+        
         Vector3 midpoint3 = GetMidpoint(min, max);
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint1, Color.red);
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint3, Color.red);
+
+        oldCount = searchGroup.Count - 1;
+        ExpandSearchGroup(midpoint3, someDistance, ref searchGroup, verts, dictFaces, dictVerteces);
+        GetBoundingBox(triangles, verts, searchGroup, oldCount, searchGroup.Count, out min, out max);
+        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+
+        Vector3 midpoint4 = GetMidpoint(min, max);
+        DrawPointInWorldSpace(t, ref pos, ref rot, midpoint3, Color.red);
+        DrawPointInWorldSpace(t, ref pos, ref rot, midpoint4, Color.red);
 
         for (int i = 0; i < triangles.Length; i += 3)
         {
@@ -1856,6 +1856,28 @@ public class UVRefocusEditor : EditorWindow
         else
         {
             return Color.Lerp(Color.blue, Color.magenta, (ratio - 0.6f) / .6f);
+        }
+    }
+
+    void ExpandSearchGroup(Vector3 startPos, float distance, ref List<int> searchGroup, Vector3[] verts, Dictionary<int, List<int>> dictFaces, Dictionary<Vector3, List<int>> dictVerteces)
+    {
+        for (int searchId = 0; searchId < searchGroup.Count; ++searchId)
+        {
+            for (int i = 0; i < 3; ++i)
+            {
+                int face = dictFaces[searchGroup[searchId]][i];
+                Vector3 v = verts[face];
+                if (Vector3.Distance(startPos, v) < distance)
+                {
+                    foreach (int adjacent in dictVerteces[v])
+                    {
+                        if (!searchGroup.Contains(adjacent))
+                        {
+                            searchGroup.Add(adjacent);
+                        }
+                    }
+                }
+            }
         }
     }
 
