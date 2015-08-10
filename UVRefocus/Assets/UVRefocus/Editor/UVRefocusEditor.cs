@@ -1724,6 +1724,16 @@ public class UVRefocusEditor : EditorWindow
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint3, Color.red);
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint4, Color.red);
 
+        oldCount = searchGroup.Count - 1;
+        ExpandSearchGroup(midpoint4, someDistance, ref searchGroup, verts, dictFaces, dictVerteces);
+        GetBoundingBox(triangles, verts, searchGroup, oldCount, searchGroup.Count, out min, out max);
+        DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+        //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
+
+        Vector3 midpoint5 = GetMidpoint(min, max);
+        DrawPointInWorldSpace(t, ref pos, ref rot, midpoint4, Color.red);
+        DrawPointInWorldSpace(t, ref pos, ref rot, midpoint5, Color.red);
+
         for (int i = 0; i < triangles.Length; i += 3)
         {
             int face1 = triangles[i];
