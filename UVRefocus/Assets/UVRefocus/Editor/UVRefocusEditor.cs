@@ -1710,7 +1710,7 @@ public class UVRefocusEditor : EditorWindow
         DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
         //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
         
-        Vector3 midpoint3 = GetMidpoint(min, max);
+        Vector3 midpoint3 = GetMidpoint(searchGroup, oldCount, searchGroup.Count, verts);
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint1, Color.red);
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint3, Color.red);
 
@@ -1720,7 +1720,7 @@ public class UVRefocusEditor : EditorWindow
         DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
         //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
 
-        Vector3 midpoint4 = GetMidpoint(min, max);
+        Vector3 midpoint4 = GetMidpoint(searchGroup, oldCount, searchGroup.Count, verts);
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint3, Color.red);
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint4, Color.red);
 
@@ -1730,7 +1730,7 @@ public class UVRefocusEditor : EditorWindow
         DrawBoundingBoxInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
         //DrawBoundingXInWorldSpace(t, ref pos, ref rot, min, max, Color.green);
 
-        Vector3 midpoint5 = GetMidpoint(min, max);
+        Vector3 midpoint5 = GetMidpoint(searchGroup, oldCount, searchGroup.Count, verts);
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint4, Color.red);
         DrawPointInWorldSpace(t, ref pos, ref rot, midpoint5, Color.red);
 
@@ -2204,6 +2204,22 @@ public class UVRefocusEditor : EditorWindow
     Vector3 GetMidpoint(Vector3 a, Vector3 b)
     {
         return (a + b) * 0.5f;
+    }
+
+    Vector3 GetMidpoint(List<int> subgroup, int start, int end, Vector3[] verts)
+    {
+        int count = end - start;
+        if (count <= 0)
+        {
+            return Vector3.zero;
+        }
+        float inverse = 1/(float) count;
+        Vector3 sum = Vector3.zero;
+        for (int i = start; i < end; ++i)
+        {
+            sum += verts[subgroup[i]] * inverse;
+        }
+        return sum;
     }
 
     void HighlightUVs(Mesh mesh, Color32[] colors)
