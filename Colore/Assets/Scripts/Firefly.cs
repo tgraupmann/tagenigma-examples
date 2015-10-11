@@ -48,30 +48,46 @@ public class Firefly : MonoBehaviour
             return;
         }
 
+        // When left mouse button is first pressed
+        if (Input.GetMouseButtonDown(0))
+        {
+            //clear the color
+            Corale.Colore.Core.Mousepad.Instance.Clear();
+        }
+
         // When left mouse is pressed
         if (Input.GetMouseButton(0))
         {
-            // on first press, immediately set the target color
-            if (_mTimer == DateTime.MinValue)
-            {
-                //immediately set the color
-                Corale.Colore.Core.Mousepad.Instance.Clear();
-                Corale.Colore.Core.Mousepad.Instance.SetStatic(_mTargetColor);
-            }
+            Corale.Colore.Core.Mousepad.Instance.SetStatic(_mTargetColor);
+
+            // set camera to target color
+            Camera.main.backgroundColor = Color.green;
+
             // do a slow fade when mouse is unpressed
             _mTimer = DateTime.Now + TimeSpan.FromMilliseconds(500);
         }
-        // with time on the clock
-        else if (_mTimer > DateTime.Now)
+
+        // When left mouse button is released
+        if (Input.GetMouseButtonUp(0))
         {
             // fade to black
             Corale.Colore.Core.Mousepad.Instance.SetStatic(Corale.Colore.Core.Color.Black);
+        }
+
+        // with time on the clock
+        if (_mTimer > DateTime.Now)
+        {
+            //fade camera to black
+            Camera.main.backgroundColor = Color.Lerp(Color.green, Color.black, 1f-(float)(_mTimer-DateTime.Now).TotalSeconds / 0.5f);
         }
         // times up
         else if (_mTimer != DateTime.MinValue)
         {
             // clear the color
             Corale.Colore.Core.Mousepad.Instance.Clear();
+
+            // set camera black
+            Camera.main.backgroundColor = Color.black;
 
             // unset the timer
             _mTimer = DateTime.MinValue;
