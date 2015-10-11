@@ -19,14 +19,6 @@ public class Firefly : MonoBehaviour
     private Corale.Colore.Razer.Mousepad.Effects.Custom _mCustomEffect = Corale.Colore.Razer.Mousepad.Effects.Custom.Create();
 
     /// <summary>
-    /// Set the LOGO as the target color
-    /// </summary>
-    void Start()
-    {
-        _mCustomEffect[0] = _mTargetColor;
-    }
-
-    /// <summary>
     /// Set all the LEDs as the same color
     /// </summary>
     /// <param name="color"></param>
@@ -57,24 +49,37 @@ public class Firefly : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Highlight mouse position
+    /// </summary>
+    /// <param name="color"></param>
+    void HighlightMousePosition(Corale.Colore.Core.Color color)
+    {
+        for (int i = 1; i < Corale.Colore.Razer.Mousepad.Constants.MaxLeds; ++i)
+        {
+            if (i >= (GetIndex() - 1) &&
+                i <= (GetIndex() + 1))
+            {
+                _mCustomEffect[i] = color;
+            }
+            else
+            {
+                _mCustomEffect[i] = Corale.Colore.Core.Color.Black;
+            }
+        }
+        Corale.Colore.Core.Mousepad.Instance.SetCustom(_mCustomEffect);
+    }
+
     void Update()
     {
         // When left mouse is pressed
         if (Input.GetMouseButton(0))
         {
-            for (int i = 1; i < Corale.Colore.Razer.Mousepad.Constants.MaxLeds; ++i)
-            {
-                if (i >= (GetIndex()-1) &&
-                    i <= (GetIndex()+1))
-                {
-                    _mCustomEffect[i] = Corale.Colore.Core.Color.Red;
-                }
-                else
-                {
-                    _mCustomEffect[i] = _mTargetColor;
-                }
-            }
-            Corale.Colore.Core.Mousepad.Instance.SetCustom(_mCustomEffect);
+            // set the logo
+            _mCustomEffect[0] = _mTargetColor;
+
+            // highlight mouse position
+            HighlightMousePosition(_mTargetColor);
 
             // set camera to target color
             Camera.main.backgroundColor = Color.green;
@@ -82,11 +87,9 @@ public class Firefly : MonoBehaviour
             // do a slow fade when mouse is unpressed
             _mTimer = DateTime.Now + TimeSpan.FromMilliseconds(500);
         }
-
-        // with time on the clock
+        // fade to black when not pressed
         else if (_mTimer > DateTime.Now)
         {
-            //fade camera to black
             float t = (float)(_mTimer - DateTime.Now).TotalSeconds / 0.5f;
             Corale.Colore.Core.Color color = new Corale.Colore.Core.Color(0, (double)t, 0);
             SetColor(color);
@@ -103,6 +106,12 @@ public class Firefly : MonoBehaviour
 
             // unset the timer
             _mTimer = DateTime.MinValue;
+        }
+        // highlight the mouse position when button is not pressed
+        else
+        {
+            // highlight mouse position
+            HighlightMousePosition(Corale.Colore.Core.Color.Blue);
         }
     }
 }
