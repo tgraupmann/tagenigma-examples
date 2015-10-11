@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 public class Firefly : MonoBehaviour
@@ -13,52 +13,68 @@ public class Firefly : MonoBehaviour
     /// </summary>
     private Corale.Colore.Core.Color _mTargetColor = Corale.Colore.Core.Color.Green;
 
-    void OnEnable()
-    {
-        // error checking
-        if (null == Corale.Colore.Core.Mousepad.Instance)
-        {
-            Debug.LogError("MousePad instance is null!");
-            return;
-        }
+    /// <summary>
+    /// Custom effects can set individual LEDs
+    /// </summary>
+    private Corale.Colore.Razer.Mousepad.Effects.Custom _mCustomEffect = Corale.Colore.Razer.Mousepad.Effects.Custom.Create();
 
-        // clear the color on start
-        Corale.Colore.Core.Mousepad.Instance.Clear();
+    /// <summary>
+    /// Set the LOGO as the target color
+    /// </summary>
+    void Start()
+    {
+        _mCustomEffect[0] = _mTargetColor;
     }
 
-    void OnDisable()
+    /// <summary>
+    /// Set all the LEDs as the same color
+    /// </summary>
+    /// <param name="color"></param>
+    void SetColor(Corale.Colore.Core.Color color)
     {
-        // error checking
-        if (null == Corale.Colore.Core.Mousepad.Instance)
+        for (int i = 0; i < Corale.Colore.Razer.Mousepad.Constants.MaxLeds; ++i)
         {
-            Debug.LogError("MousePad instance is null!");
-            return;
+            _mCustomEffect[i] = color;
         }
+        Corale.Colore.Core.Mousepad.Instance.SetCustom(_mCustomEffect);
+    }
 
-        // clear the color on stop
-        Corale.Colore.Core.Mousepad.Instance.Clear();
+    /// <summary>
+    /// Get the LED index based on the mouse position
+    /// </summary>
+    /// <returns></returns>
+    int GetIndex()
+    {
+        float halfWidth = Screen.width * 0.5f;
+        float halfHeight = Screen.height * 0.5f;
+        if (Input.mousePosition.x < halfWidth)
+        {
+            return (int)Mathf.Lerp(8, 14, Mathf.InverseLerp(0, halfHeight, Input.mousePosition.y));
+        }
+        else
+        {
+            return (int)Mathf.Lerp(7, 1, Mathf.InverseLerp(0, halfHeight, Input.mousePosition.y));
+        }
     }
 
     void Update()
     {
-        // error checking
-        if (null == Corale.Colore.Core.Mousepad.Instance)
-        {
-            Debug.LogError("MousePad instance is null!");
-            return;
-        }
-
-        // When left mouse button is first pressed
-        if (Input.GetMouseButtonDown(0))
-        {
-            //clear the color
-            Corale.Colore.Core.Mousepad.Instance.Clear();
-        }
-
         // When left mouse is pressed
         if (Input.GetMouseButton(0))
         {
-            Corale.Colore.Core.Mousepad.Instance.SetStatic(_mTargetColor);
+            for (int i = 1; i < Corale.Colore.Razer.Mousepad.Constants.MaxLeds; ++i)
+            {
+                if (i >= (GetIndex()-1) &&
+                    i <= (GetIndex()+1))
+                {
+                    _mCustomEffect[i] = Corale.Colore.Core.Color.Red;
+                }
+                else
+                {
+                    _mCustomEffect[i] = _mTargetColor;
+                }
+            }
+            Corale.Colore.Core.Mousepad.Instance.SetCustom(_mCustomEffect);
 
             // set camera to target color
             Camera.main.backgroundColor = Color.green;
@@ -67,18 +83,14 @@ public class Firefly : MonoBehaviour
             _mTimer = DateTime.Now + TimeSpan.FromMilliseconds(500);
         }
 
-        // When left mouse button is released
-        if (Input.GetMouseButtonUp(0))
-        {
-            // fade to black
-            Corale.Colore.Core.Mousepad.Instance.SetStatic(Corale.Colore.Core.Color.Black);
-        }
-
         // with time on the clock
-        if (_mTimer > DateTime.Now)
+        else if (_mTimer > DateTime.Now)
         {
             //fade camera to black
-            Camera.main.backgroundColor = Color.Lerp(Color.green, Color.black, 1f-(float)(_mTimer-DateTime.Now).TotalSeconds / 0.5f);
+            float t = (float)(_mTimer - DateTime.Now).TotalSeconds / 0.5f;
+            Corale.Colore.Core.Color color = new Corale.Colore.Core.Color(0, (double)t, 0);
+            SetColor(color);
+            Camera.main.backgroundColor = Color.Lerp(Color.green, Color.black, 1f-t);
         }
         // times up
         else if (_mTimer != DateTime.MinValue)
