@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Runtime.InteropServices;
-using System.Threading;
 using System.Windows.Forms;
 
 namespace FireflyReactive
@@ -22,7 +19,8 @@ namespace FireflyReactive
         /// <summary>
         /// Custom effects can set individual LEDs
         /// </summary>
-        private static Corale.Colore.Razer.Mousepad.Effects.Custom _mCustomEffect = Corale.Colore.Razer.Mousepad.Effects.Custom.Create();
+        private static Corale.Colore.Razer.Mousepad.Effects.Custom _mCustomEffect =
+            Corale.Colore.Razer.Mousepad.Effects.Custom.Create();
 
         /// <summary>
         /// A reference to the current screen
