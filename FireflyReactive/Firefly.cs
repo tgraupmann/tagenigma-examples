@@ -1,4 +1,8 @@
-﻿using System;
+﻿#define ENABLE_HEADSET
+#define ENABLE_MOUSE
+#define ENABLE_MOUSEPAD
+
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -17,9 +21,21 @@ namespace FireflyReactive
         private static Corale.Colore.Core.Color _mTargetColor = Corale.Colore.Core.Color.Green;
 
         /// <summary>
-        /// Custom effects can set individual LEDs
+        /// Static effect for headset
         /// </summary>
-        private static Corale.Colore.Razer.Mousepad.Effects.Custom _mCustomEffect =
+        private static Corale.Colore.Razer.Headset.Effects.Static _mHeadsetStaticEffect =
+            new Corale.Colore.Razer.Headset.Effects.Static();
+
+        /// <summary>
+        /// Custom effects can set individual LEDs on Mouse
+        /// </summary>
+        private static Corale.Colore.Razer.Mouse.Effects.Custom _mMouseCustomEffect =
+            Corale.Colore.Razer.Mouse.Effects.Custom.Create();
+
+        /// <summary>
+        /// Custom effects can set individual LEDs on MousePad
+        /// </summary>
+        private static Corale.Colore.Razer.Mousepad.Effects.Custom _mMousepadCustomEffect =
             Corale.Colore.Razer.Mousepad.Effects.Custom.Create();
 
         /// <summary>
@@ -33,11 +49,21 @@ namespace FireflyReactive
         /// <param name="color"></param>
         static void SetColor(Corale.Colore.Core.Color color)
         {
+#if ENABLE_MOUSE
+            for (int i = 0; i < Corale.Colore.Razer.Mouse.Constants.MaxLeds; ++i)
+            {
+                _mMouseCustomEffect[i] = color;
+            }
+            Corale.Colore.Core.Mouse.Instance.SetCustom(_mMouseCustomEffect);
+#endif
+
+#if ENABLE_MOUSEPAD
             for (int i = 0; i < Corale.Colore.Razer.Mousepad.Constants.MaxLeds; ++i)
             {
-                _mCustomEffect[i] = color;
+                _mMousepadCustomEffect[i] = color;
             }
-            Corale.Colore.Core.Mousepad.Instance.SetCustom(_mCustomEffect);
+            Corale.Colore.Core.Mousepad.Instance.SetCustom(_mMousepadCustomEffect);
+#endif
         }
 
         static float Lerp(float from, float to, float value)
@@ -93,19 +119,29 @@ namespace FireflyReactive
         /// <param name="color"></param>
         static void HighlightMousePosition(Corale.Colore.Core.Color color)
         {
+#if ENABLE_MOUSE
+            for (int i = 0; i < Corale.Colore.Razer.Mouse.Constants.MaxLeds; ++i)
+            {
+                _mMouseCustomEffect[i] = color;
+            }
+            Corale.Colore.Core.Mouse.Instance.SetCustom(_mMouseCustomEffect);
+#endif
+
+#if ENABLE_MOUSEPAD
             for (int i = 1; i < Corale.Colore.Razer.Mousepad.Constants.MaxLeds; ++i)
             {
                 if (i >= (GetIndex() - 1) &&
                     i <= (GetIndex() + 1))
                 {
-                    _mCustomEffect[i] = color;
+                    _mMousepadCustomEffect[i] = color;
                 }
                 else
                 {
-                    _mCustomEffect[i] = Corale.Colore.Core.Color.Black;
+                    _mMousepadCustomEffect[i] = Corale.Colore.Core.Color.Black;
                 }
             }
-            Corale.Colore.Core.Mousepad.Instance.SetCustom(_mCustomEffect);
+            Corale.Colore.Core.Mousepad.Instance.SetCustom(_mMousepadCustomEffect);
+#endif
         }
 
         public static void Update()
@@ -117,10 +153,18 @@ namespace FireflyReactive
             if (Main._mLeftMouseButton)
             {
                 // set the logo
-                _mCustomEffect[0] = _mTargetColor;
+                _mMousepadCustomEffect[0] = _mTargetColor;
 
                 // highlight mouse position
                 HighlightMousePosition(_mTargetColor);
+
+#if ENABLE_HEADSET
+                if (_mHeadsetStaticEffect.Color != _mTargetColor)
+                {
+                    _mHeadsetStaticEffect.Color = _mTargetColor;
+                    Corale.Colore.Core.Headset.Instance.SetStatic(_mHeadsetStaticEffect);
+                }
+#endif
 
                 // do a slow fade when mouse is unpressed
                 _mTimer = DateTime.Now + TimeSpan.FromMilliseconds(500);
@@ -131,12 +175,31 @@ namespace FireflyReactive
                 float t = (float)(_mTimer - DateTime.Now).TotalSeconds / 0.5f;
                 Corale.Colore.Core.Color color = new Corale.Colore.Core.Color(0, (double)t, 0);
                 SetColor(color);
+
+#if ENABLE_HEADSET
+                if (_mHeadsetStaticEffect.Color != color)
+                {
+                    _mHeadsetStaticEffect.Color = color;
+                    Corale.Colore.Core.Headset.Instance.SetStatic(_mHeadsetStaticEffect);
+                }
+#endif
             }
             // times up
             else if (_mTimer != DateTime.MinValue)
             {
+#if ENABLE_HEADSET
+                Corale.Colore.Core.Headset.Instance.Clear();
+#endif
+
+#if ENABLE_MOUSE
+                // clear the color
+                Corale.Colore.Core.Mouse.Instance.Clear();
+#endif
+
+#if ENABLE_MOUSEPAD
                 // clear the color
                 Corale.Colore.Core.Mousepad.Instance.Clear();
+#endif
 
                 // unset the timer
                 _mTimer = DateTime.MinValue;
@@ -146,13 +209,31 @@ namespace FireflyReactive
             {
                 // highlight mouse position
                 HighlightMousePosition(Corale.Colore.Core.Color.Blue);
+
+#if ENABLE_HEADSET
+                if (_mHeadsetStaticEffect.Color != Corale.Colore.Core.Color.Blue)
+                {
+                    _mHeadsetStaticEffect.Color = Corale.Colore.Core.Color.Blue;
+                    Corale.Colore.Core.Headset.Instance.SetStatic(_mHeadsetStaticEffect);
+                }
+#endif
             }
         }
 
         public static void Quit()
         {
+#if ENABLE_HEADSET
+            Corale.Colore.Core.Headset.Instance.Clear();
+#endif
+
+#if ENABLE_MOUSE
+            Corale.Colore.Core.Mouse.Instance.Clear();
+#endif
+
+#if ENABLE_MOUSEPAD
             // clear the color
             Corale.Colore.Core.Mousepad.Instance.Clear();
+#endif
         }
     }
 }
