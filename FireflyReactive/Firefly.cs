@@ -175,20 +175,13 @@ namespace FireflyReactive
                 float t = (float)(_mTimer - DateTime.Now).TotalSeconds / 0.5f;
                 Corale.Colore.Core.Color color = new Corale.Colore.Core.Color(0, (double)t, 0);
                 SetColor(color);
-
-#if ENABLE_HEADSET
-                if (_mHeadsetStaticEffect.Color != color)
-                {
-                    _mHeadsetStaticEffect.Color = color;
-                    Corale.Colore.Core.Headset.Instance.SetStatic(_mHeadsetStaticEffect);
-                }
-#endif
             }
             // times up
             else if (_mTimer != DateTime.MinValue)
             {
 #if ENABLE_HEADSET
-                Corale.Colore.Core.Headset.Instance.Clear();
+                _mHeadsetStaticEffect.Color = Corale.Colore.Core.Color.Blue;
+                Corale.Colore.Core.Headset.Instance.SetStatic(_mHeadsetStaticEffect);
 #endif
 
 #if ENABLE_MOUSE
