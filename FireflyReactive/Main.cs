@@ -61,6 +61,7 @@ namespace FireflyReactive
 
         private void UpdateThread()
         {
+            Firefly.Start();
             while (_mStayAwake)
             {
                 Firefly.Update();

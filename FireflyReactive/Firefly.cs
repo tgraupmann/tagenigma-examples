@@ -1,4 +1,5 @@
 ﻿#define ENABLE_HEADSET
+#define ENABLE_KEYBOARD
 #define ENABLE_MOUSE
 #define ENABLE_MOUSEPAD
 
@@ -213,10 +214,40 @@ namespace FireflyReactive
             }
         }
 
+        public static void Start()
+        {
+#if ENABLE_KEYBOARD
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.W, Corale.Colore.Core.Color.Red);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.A, Corale.Colore.Core.Color.Red);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.S, Corale.Colore.Core.Color.Red);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.D, Corale.Colore.Core.Color.Red);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.T, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Tab, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.LeftControl, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.LeftAlt, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.LeftShift, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Space, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.One, Corale.Colore.Core.Color.Blue);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Two, Corale.Colore.Core.Color.Blue);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Three, Corale.Colore.Core.Color.Blue);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Four, Corale.Colore.Core.Color.Blue);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Five, Corale.Colore.Core.Color.Blue);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Six, Corale.Colore.Core.Color.Blue);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Seven, Corale.Colore.Core.Color.Blue);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Eight, Corale.Colore.Core.Color.Blue);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Nine, Corale.Colore.Core.Color.Blue);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Zero, Corale.Colore.Core.Color.Blue);
+#endif
+        }
+
         public static void Quit()
         {
 #if ENABLE_HEADSET
             Corale.Colore.Core.Headset.Instance.Clear();
+#endif
+
+#if ENABLE_KEYBOARD
+            Corale.Colore.Core.Keyboard.Instance.Clear();
 #endif
 
 #if ENABLE_MOUSE
