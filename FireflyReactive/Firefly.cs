@@ -217,6 +217,8 @@ namespace FireflyReactive
         public static void Start()
         {
 #if ENABLE_KEYBOARD
+            Corale.Colore.Core.Keyboard.Instance.Clear();
+
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.W, Corale.Colore.Core.Color.Red);
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.A, Corale.Colore.Core.Color.Red);
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.S, Corale.Colore.Core.Color.Red);
