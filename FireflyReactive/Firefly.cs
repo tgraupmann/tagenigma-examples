@@ -221,7 +221,16 @@ namespace FireflyReactive
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.A, Corale.Colore.Core.Color.Red);
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.S, Corale.Colore.Core.Color.Red);
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.D, Corale.Colore.Core.Color.Red);
-            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.T, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F, Corale.Colore.Core.Color.Red);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.G, Corale.Colore.Core.Color.Red);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Oem4, Corale.Colore.Core.Color.Red);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Oem5, Corale.Colore.Core.Color.Red);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Insert, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Delete, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Home, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.End, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.PageDown, Corale.Colore.Core.Color.Green);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.PageUp, Corale.Colore.Core.Color.Green);
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Tab, Corale.Colore.Core.Color.Green);
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.LeftControl, Corale.Colore.Core.Color.Green);
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.LeftAlt, Corale.Colore.Core.Color.Green);
@@ -237,6 +246,18 @@ namespace FireflyReactive
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Eight, Corale.Colore.Core.Color.Blue);
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Nine, Corale.Colore.Core.Color.Blue);
             Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.Zero, Corale.Colore.Core.Color.Blue);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F1, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F2, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F3, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F4, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F5, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F6, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F7, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F8, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F9, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F10, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F11, Corale.Colore.Core.Color.Orange);
+            Corale.Colore.Core.Keyboard.Instance.SetKey(Corale.Colore.Razer.Keyboard.Key.F12, Corale.Colore.Core.Color.Orange);
 #endif
         }
 
