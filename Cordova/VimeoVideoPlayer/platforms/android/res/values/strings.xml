@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VideoPlayer</string>
+    <string name="launcher_name">@string/app_name</string>
+    <string name="activity_name">@string/launcher_name</string>
+    <string name="purchase_info">A purchase is required to proceed. The application failed to detect a receipt. Would you like to purchase to unlock the premium content?"</string>
+    <string name="purchase_yes">YES! Purchase!</string>
+    <string name="purchase_no">NO! Exit!</string>
+</resources>

@@ -1,0 +1,59 @@
+{
+    "prepare_queue": {
+        "installed": [],
+        "uninstalled": []
+    },
+    "config_munge": {
+        "files": {
+            "res/xml/config.xml": {
+                "parents": {
+                    "/*": [
+                        {
+                            "xml": "<feature name=\"Whitelist\"><param name=\"android-package\" value=\"org.apache.cordova.whitelist.WhitelistPlugin\" /><param name=\"onload\" value=\"true\" /></feature>",
+                            "count": 1
+                        },
+                        {
+                            "xml": "<feature name=\"OuyaSDK\"><param name=\"android-package\" value=\"tv.ouya.sdk.CordovaOuyaPlugin\" /><param name=\"onload\" value=\"true\" /></feature>",
+                            "count": 1
+                        }
+                    ]
+                }
+            },
+            "AndroidManifest.xml": {
+                "parents": {
+                    "/manifest/application/activity/intent-filter": [
+                        {
+                            "xml": "<category android:name=\"tv.ouya.intent.category.GAME\" />",
+                            "count": 1
+                        },
+                        {
+                            "xml": "<category android:name=\"android.intent.category.LEANBACK_LAUNCHER\" />",
+                            "count": 1
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    "installed_plugins": {
+        "cordova-plugin-whitelist": {
+            "PACKAGE_NAME": "tv.ouya.examples.cordova.videoplayer"
+        },
+        "cordova-plugin-ouya-sdk": {
+            "PACKAGE_NAME": "tv.ouya.examples.cordova.videoplayer"
+        }
+    },
+    "dependent_plugins": {},
+    "modules": [
+        {
+            "file": "plugins/cordova-plugin-whitelist/whitelist.js",
+            "id": "cordova-plugin-whitelist.whitelist",
+            "runs": true
+        },
+        {
+            "file": "plugins/cordova-plugin-ouya-sdk/ouya-sdk.js",
+            "id": "cordova-plugin-ouya-sdk.OuyaSDK",
+            "runs": true
+        }
+    ]
+}
