@@ -63,7 +63,8 @@ public class MainActivity extends CordovaActivity
                         // User cancelled the dialog
                         finish();
                     }
-                });
+                })
+                .setCancelable(false);
         // Create the AlertDialog object and return it
         builder.create().show();
     }
